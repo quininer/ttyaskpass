@@ -7,8 +7,8 @@ authors = ["quininer kel <quininer@live.com>"]
 name = "ttyaskpass"
 
 [dependencies]
-rand = "*"
-secstr = "*"
-ansi_term = "*"
-interactor = "*"
-colorhash256 = "*"
+rand = "0.3"
+secstr = "0.2"
+ansi_term = "0.7"
+interactor = "0.1"
+colorhash256 = "0.1"
