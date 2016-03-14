@@ -13,7 +13,7 @@ use colorhash256::hash_as_ansi;
 
 
 pub fn askpass(star: &[u8]) -> SecStr {
-    let star = if star.len() == 0 { "~".as_bytes() } else { star };
+    let star = if star.len() == 0 { b"~" } else { star };
     let star = star.iter().cycle().take(8).cloned().collect::<Vec<u8>>();
     interactor::read_from_tty(|buf, b, tty| {
         if b == 4 {
@@ -22,7 +22,7 @@ pub fn askpass(star: &[u8]) -> SecStr {
         };
         let colors = match buf.len() {
             0 => [30; 8],
-            1...7 => hash_as_ansi(&vec![random(); 8]),
+            1...7 => hash_as_ansi(&[random(); 8]),
             _ => hash_as_ansi(buf)
         };
         let color_string = format!(
