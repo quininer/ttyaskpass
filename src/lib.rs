@@ -1,20 +1,19 @@
 extern crate rand;
-extern crate secstr;
+extern crate sarkara;
 extern crate ansi_term;
 extern crate interactor;
 extern crate colorhash256;
 
-use std::char;
 use std::io::Write;
 use std::iter::repeat;
 use rand::random;
-use secstr::SecStr;
+use sarkara::utils::Bytes;
 use ansi_term::{ ANSIStrings, ANSIString };
 use ansi_term::Colour::Fixed;
 use colorhash256::hash_as_ansi;
 
 
-pub fn askpass<S: Into<Option<char>>>(star: S) -> SecStr {
+pub fn askpass<S: Into<Option<char>>>(star: S) -> Bytes {
     let star = repeat(star.into().unwrap_or('~'))
         .take(8)
         .map(|c| c as u8)

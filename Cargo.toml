@@ -8,7 +8,7 @@ name = "ttyaskpass"
 
 [dependencies]
 rand = "0.3"
-secstr = "0.2"
+sarkara = { git = "https://github.com/quininer/sarkara.git" }
 ansi_term = "0.7"
 interactor = "0.1"
-colorhash256 = "0.1"
+colorhash256 = { git = "https://github.com/quininer/colorhash256.git", branch = "no_std" }

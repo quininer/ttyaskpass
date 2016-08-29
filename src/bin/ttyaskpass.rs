@@ -5,6 +5,6 @@ use ttyaskpass::askpass;
 
 fn main() {
     let mut stdout = io::stdout();
-    stdout.write(askpass('~').unsecure()).unwrap();
+    stdout.write(&askpass('~')).unwrap();
     stdout.flush().unwrap();
 }
