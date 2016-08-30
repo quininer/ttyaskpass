@@ -1,5 +1,5 @@
 extern crate rand;
-extern crate sarkara;
+extern crate seckey;
 extern crate ansi_term;
 extern crate interactor;
 extern crate colorhash256;
@@ -7,7 +7,7 @@ extern crate colorhash256;
 use std::io::Write;
 use std::iter::repeat;
 use rand::random;
-use sarkara::utils::Bytes;
+use seckey::Bytes;
 use ansi_term::{ ANSIStrings, ANSIString };
 use ansi_term::Colour::Fixed;
 use colorhash256::hash_as_ansi;
