@@ -1,5 +1,4 @@
 extern crate rand;
-extern crate seckey;
 extern crate ansi_term;
 extern crate interactor;
 extern crate colorhash256;
@@ -7,14 +6,13 @@ extern crate colorhash256;
 use std::io::Write;
 use std::iter::repeat;
 use rand::random;
-use seckey::Bytes;
 use ansi_term::{ ANSIStrings, ANSIString };
 use ansi_term::Colour::Fixed;
 use colorhash256::hash_as_ansi;
 
 
-pub fn askpass<S: Into<Option<char>>>(star: S) -> Bytes {
-    let star = repeat(star.into().unwrap_or('~'))
+pub fn askpass<T: From<Vec<u8>>>(star: char) -> T {
+    let star = repeat(star)
         .take(8)
         .map(|c| c as u8)
         .collect::<Vec<u8>>();
