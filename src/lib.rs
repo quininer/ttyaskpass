@@ -1,7 +1,7 @@
 extern crate rand;
-extern crate tiny_keccak;
-extern crate termion;
 extern crate seckey;
+extern crate termion;
+extern crate tiny_keccak;
 
 #[macro_use] mod utils;
 mod readtty;
@@ -22,7 +22,7 @@ pub fn askpass<T>(star: char) -> io::Result<T>
     where T: From<Vec<u8>>
 {
     let mut pos = 0;
-    let mut buf: SecKey<[char; 256]> = SecKey::new([Default::default(); 256])
+    let mut buf = SecKey::new([char::default(); 256])
         .map_err(|_| err!(Other, "SecKey malloc fail"))?;
     let mut tty = get_tty()?;
 
@@ -35,14 +35,14 @@ pub fn askpass<T>(star: char) -> io::Result<T>
                 pos += 1;
             },
             Key::Backspace | Key::Delete if pos >= 1 => pos -= 1,
-            Key::Ctrl('c') => return Err(err!(ConnectionAborted)),
-            _ => (),
+            Key::Ctrl('c') => return Err(err!(Interrupted, "Ctrl-c")),
+            _ => ()
         }
 
         let colors = match pos {
             0 => [AnsiValue(30); 8],
             1...7 => hash_as_ansi(&[random(); 16]),
-            _ => hash_chars_as_ansi(&buf[..pos])
+            p => hash_chars_as_ansi(&buf[..p])
         };
 
         write!(
