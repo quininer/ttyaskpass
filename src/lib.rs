@@ -4,7 +4,7 @@ extern crate termion;
 extern crate tiny_keccak;
 
 #[macro_use] mod utils;
-mod readtty;
+pub mod readtty;
 pub mod colorhash;
 
 use std::io::{ self, Write };
@@ -12,6 +12,7 @@ use std::iter::repeat;
 use rand::random;
 use seckey::SecKey;
 use termion::get_tty;
+use termion::clear;
 use termion::event::Key;
 use termion::color::{ Fg, Reset, AnsiValue };
 use readtty::read_from_tty;
@@ -41,7 +42,7 @@ pub fn askpass<T>(star: char) -> io::Result<T>
 
         let colors = match pos {
             0 => [AnsiValue(30); 8],
-            1...7 => hash_as_ansi(&[random(); 16]),
+            1...7 => hash_as_ansi(&[random()]),
             p => hash_chars_as_ansi(&buf[..p])
         };
 
@@ -58,7 +59,7 @@ pub fn askpass<T>(star: char) -> io::Result<T>
         Ok(false)
     })?;
 
-    write!(tty, "\r{:<18}\r", "")?;
+    write!(tty, "{}\r", clear::CurrentLine)?;
     let output = buf.read()[..pos].iter().collect::<String>();
     Ok(T::from(output.into_bytes()))
 }

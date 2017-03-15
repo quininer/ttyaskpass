@@ -6,7 +6,6 @@ use termion::input::TermRead;
 use termion::raw::{ IntoRawMode, RawTerminal };
 
 
-
 pub struct RawTTY(pub RawTerminal<File>);
 
 impl Read for RawTTY {
