@@ -30,16 +30,12 @@ pub fn askpass<T>(star: char) -> io::Result<T>
         let mut buf = buf.write();
         match key {
             Key::Char('\n') => return Ok(true),
-            Key::Char(c) => match pos {
-                0...254 => {
-                    buf[pos] = c;
-                    pos += 1;
-                },
-                255 => buf[pos] = c,
-                _ => unreachable!()
+            Key::Char(c) => if pos < buf.len() {
+                buf[pos] = c;
+                pos += 1;
             },
             Key::Backspace | Key::Delete if pos >= 1 => pos -= 1,
-            Key::Ctrl('c') => return Err(err!(BrokenPipe)),
+            Key::Ctrl('c') => return Err(err!(ConnectionAborted)),
             _ => (),
         }
 
