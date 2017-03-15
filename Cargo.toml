@@ -8,7 +8,6 @@ name = "ttyaskpass"
 
 [dependencies]
 rand = "0.3"
-seckey = "0.2"
-ansi_term = "0.7"
-interactor = "0.1"
-colorhash256 = { git = "https://github.com/quininer/colorhash256.git", branch = "no_std" }
+seckey = "0.4"
+termion = "1.2"
+tiny-keccak = "1.2"

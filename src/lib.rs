@@ -1,45 +1,68 @@
 extern crate rand;
-extern crate ansi_term;
-extern crate interactor;
-extern crate colorhash256;
+extern crate tiny_keccak;
+extern crate termion;
+extern crate seckey;
 
-use std::io::Write;
+#[macro_use] mod utils;
+mod readtty;
+pub mod colorhash;
+
+use std::io::{ self, Write };
 use std::iter::repeat;
 use rand::random;
-use ansi_term::{ ANSIStrings, ANSIString };
-use ansi_term::Colour::Fixed;
-use colorhash256::hash_as_ansi;
+use seckey::SecKey;
+use termion::get_tty;
+use termion::event::Key;
+use termion::color::{ Fg, Reset, AnsiValue };
+use readtty::read_from_tty;
+use colorhash::{ hash_as_ansi, hash_chars_as_ansi };
 
 
-pub fn askpass<T: From<Vec<u8>>>(star: char) -> T {
-    let star = repeat(star)
-        .take(8)
-        .map(|c| c as u8)
-        .collect::<Vec<u8>>();
+pub fn askpass<T>(star: char) -> io::Result<T>
+    where T: From<Vec<u8>>
+{
+    let mut pos = 0;
+    let mut buf: SecKey<[char; 256]> = SecKey::new([Default::default(); 256])
+        .map_err(|_| err!(Other, "SecKey malloc fail"))?;
+    let mut tty = get_tty()?;
 
-    interactor::read_from_tty(|buf, b, tty| {
-        if b == 4 {
-            write!(tty, "\r{:<18}\r", "").unwrap();
-            return ();
+    read_from_tty(|key| {
+        let mut buf = buf.write();
+        match key {
+            Key::Char('\n') => return Ok(true),
+            Key::Char(c) => match pos {
+                0...254 => {
+                    buf[pos] = c;
+                    pos += 1;
+                },
+                255 => buf[pos] = c,
+                _ => unreachable!()
+            },
+            Key::Backspace | Key::Delete if pos >= 1 => pos -= 1,
+            Key::Ctrl('c') => return Err(err!(BrokenPipe)),
+            _ => (),
         }
 
-        let colors = match buf.len() {
-            0 => [30; 8],
-            1...7 => hash_as_ansi(&[random(); 4]),
-            _ => hash_as_ansi(buf)
+        let colors = match pos {
+            0 => [AnsiValue(30); 8],
+            1...7 => hash_as_ansi(&[random(); 16]),
+            _ => hash_chars_as_ansi(&buf[..pos])
         };
 
         write!(
             tty,
-            "\rPassword: {}",
-            ANSIStrings(
-                &star
-                    .chunks(2)
-                    .map(String::from_utf8_lossy)
-                    .zip(&colors[..4])
-                    .map(|(s, &c)| Fixed(c as u8).paint(s))
-                    .collect::<Vec<ANSIString>>()
-            )
-        ).unwrap();
-    }, true, true).unwrap().into()
+            "\rPassword: {}{}",
+            repeat(star)
+                .take(4)
+                .zip(&colors[..4])
+                .map(|(star, &color)| format!("{}{}{}", Fg(color), star, star))
+                .collect::<String>(),
+            Fg(Reset)
+        )?;
+        Ok(false)
+    })?;
+
+    write!(tty, "\r{:<18}\r", "")?;
+    let output = buf.read()[..pos].iter().collect::<String>();
+    Ok(T::from(output.into_bytes()))
 }
