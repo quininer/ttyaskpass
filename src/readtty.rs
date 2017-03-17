@@ -6,7 +6,14 @@ use termion::input::TermRead;
 use termion::raw::{ IntoRawMode, RawTerminal };
 
 
-pub struct RawTTY(pub RawTerminal<File>);
+/// RawTTY wrapper.
+pub struct RawTTY(RawTerminal<File>);
+
+impl RawTTY {
+    pub fn new() -> io::Result<RawTTY> {
+        Ok(RawTTY(get_tty()?.into_raw_mode()?))
+    }
+}
 
 impl Read for RawTTY {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
@@ -14,12 +21,11 @@ impl Read for RawTTY {
     }
 }
 
-
-pub fn read_from_tty<F>(mut f: F) -> io::Result<()>
-    where F: FnMut(Key) -> io::Result<bool>
+pub fn read_from_tty<T, F>(raw_tty: T, mut f: F) -> io::Result<()>
+    where
+        T: Read,
+        F: FnMut(Key) -> io::Result<bool>
 {
-    let raw_tty = RawTTY(get_tty()?.into_raw_mode()?);
-
     for key in Some(Ok(Key::Null)).into_iter()
         .chain(raw_tty.keys())
     {
