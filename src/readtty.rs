@@ -1,23 +1,43 @@
+use std::mem;
 use std::io::{ self, Read };
 use std::fs::File;
+use std::os::unix::io::AsRawFd;
+use libc::{ termios, tcgetattr, tcsetattr, cfmakeraw };
 use termion::get_tty;
 use termion::event::Key;
 use termion::input::TermRead;
-use termion::raw::{ IntoRawMode, RawTerminal };
 
 
 /// RawTTY wrapper.
-pub struct RawTTY(RawTerminal<File>);
+pub struct RawTTY {
+    tty: File
+}
 
 impl RawTTY {
     pub fn new() -> io::Result<RawTTY> {
-        Ok(RawTTY(get_tty()?.into_raw_mode()?))
+        unsafe {
+            let tty = get_tty()?;
+            let tty_fd = tty.as_raw_fd();
+            let mut ios = mem::zeroed();
+
+            if tcgetattr(tty_fd, &mut ios) != 0 {
+                return Err(io::Error::last_os_error())
+            }
+
+            cfmakeraw(&mut ios);
+
+            if tcsetattr(tty_fd, 0, &ios) != 0 {
+                return Err(io::Error::last_os_error())
+            }
+
+            Ok(RawTTY { tty })
+        }
     }
 }
 
 impl Read for RawTTY {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.read(buf)
+        self.tty.read(buf)
     }
 }
 

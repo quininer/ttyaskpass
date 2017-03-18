@@ -8,6 +8,7 @@ name = "ttyaskpass"
 doc = false
 
 [dependencies]
+libc = "0.2"
 rand = "0.3"
 seckey = "0.4"
 termion = "1.2"

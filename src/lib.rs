@@ -1,3 +1,4 @@
+extern crate libc;
 extern crate rand;
 extern crate seckey;
 extern crate termion;
@@ -27,13 +28,13 @@ use readtty::{ RawTTY, read_from_tty };
 /// - `get_tty()`/`.into_raw_mode()` fail
 /// - SecKey malloc fail
 #[inline]
-pub fn askpass<T>(star: char) -> io::Result<T>
+pub fn askpass<T>(prompt: &str, star: char) -> io::Result<T>
     where T: From<Vec<u8>>
 {
-    raw_askpass(RawTTY::new()?, get_tty()?, star)
+    raw_askpass(RawTTY::new()?, get_tty()?, prompt, star)
 }
 
-pub fn raw_askpass<T, I, O>(input_tty: I, mut output_tty: O, star: char) -> io::Result<T>
+pub fn raw_askpass<T, I, O>(input_tty: I, mut output_tty: O, prompt: &str, star: char) -> io::Result<T>
     where
         T: From<Vec<u8>>,
         I: Read,
@@ -64,7 +65,8 @@ pub fn raw_askpass<T, I, O>(input_tty: I, mut output_tty: O, star: char) -> io::
 
         write!(
             output_tty,
-            "\rPassword: {}{}",
+            "\r{} {}{}",
+            prompt,
             repeat(star)
                 .take(4)
                 .zip(&colors[..4])
