@@ -4,8 +4,8 @@ extern crate termion;
 extern crate tiny_keccak;
 
 #[macro_use] mod utils;
-pub mod readtty;
-pub mod colorhash;
+mod readtty;
+mod colorhash;
 
 use std::io::{ self, Read, Write };
 use std::iter::repeat;
@@ -19,6 +19,13 @@ use colorhash::{ hash_as_ansi, hash_chars_as_ansi };
 use readtty::{ RawTTY, read_from_tty };
 
 
+/// askpass
+///
+/// ### Fail When:
+/// - IO Error
+/// - User Interrupted
+/// - `get_tty()`/`.into_raw_mode()` fail
+/// - SecKey malloc fail
 #[inline]
 pub fn askpass<T>(star: char) -> io::Result<T>
     where T: From<Vec<u8>>
@@ -28,9 +35,9 @@ pub fn askpass<T>(star: char) -> io::Result<T>
 
 pub fn raw_askpass<T, I, O>(input_tty: I, mut output_tty: O, star: char) -> io::Result<T>
     where
+        T: From<Vec<u8>>,
         I: Read,
-        O: Write,
-        T: From<Vec<u8>>
+        O: Write
 {
     let mut pos = 0;
     let mut buf = SecKey::new([char::default(); 256])
@@ -69,6 +76,6 @@ pub fn raw_askpass<T, I, O>(input_tty: I, mut output_tty: O, star: char) -> io::
     })?;
 
     write!(output_tty, "{}\r", clear::CurrentLine)?;
-    let output = buf.read()[..pos].iter().collect::<String>();
+    let output = buf.read().iter().take(pos).collect::<String>();
     Ok(T::from(output.into_bytes()))
 }

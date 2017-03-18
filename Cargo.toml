@@ -5,6 +5,7 @@ authors = ["quininer kel <quininer@live.com>"]
 
 [[bin]]
 name = "ttyaskpass"
+doc = false
 
 [dependencies]
 rand = "0.3"
