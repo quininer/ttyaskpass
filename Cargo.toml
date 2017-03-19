@@ -1,7 +1,12 @@
 [package]
 name = "ttyaskpass"
-version = "0.1.2"
+version = "1.0.1"
 authors = ["quininer kel <quininer@live.com>"]
+description = "a safely passphrase prompt library."
+repository = "https://github.com/quininer/ttyaskpass"
+keywords = [ "askpass", "getpass", "passphrase", "prompt" ]
+documentation = "https://docs.rs/ttyaskpass/"
+license = "MIT"
 
 [[bin]]
 name = "ttyaskpass"

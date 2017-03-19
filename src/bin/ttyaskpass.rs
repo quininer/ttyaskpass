@@ -10,7 +10,7 @@ use ttyaskpass::askpass;
 
 #[inline]
 fn start(prompt: &str) -> io::Result<()> {
-    match askpass::<Bytes>(prompt, '~') {
+    match askpass::<Bytes>(prompt, '*') {
         Ok(output) => {
             let mut stdout = io::stdout();
             stdout.write(&output)?;

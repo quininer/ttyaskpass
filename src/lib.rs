@@ -20,7 +20,7 @@ use colorhash::{ hash_as_ansi, hash_chars_as_ansi };
 use readtty::{ RawTTY, read_from_tty };
 
 
-/// askpass
+/// askpass.
 ///
 /// ### Fail When:
 /// - IO Error
