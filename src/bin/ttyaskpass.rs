@@ -10,9 +10,9 @@ use ttyaskpass::askpass;
 
 #[inline]
 fn start() -> io::Result<()> {
-    let prompt = args().skip(1).fold(String::new(), |sum, next| sum + &next);
+    let prompt = args().skip(1).next().unwrap_or("Password:".into());
 
-    match askpass::<Bytes>(if !prompt.is_empty() { &prompt } else { "Password:" }, '~') {
+    match askpass::<Bytes>(&prompt, '~') {
         Ok(output) => {
             let mut stdout = io::stdout();
             stdout.write(&output)?;

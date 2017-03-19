@@ -25,7 +25,7 @@ use readtty::{ RawTTY, read_from_tty };
 /// ### Fail When:
 /// - IO Error
 /// - User Interrupted
-/// - `get_tty()`/`.into_raw_mode()` fail
+/// - RawTTY create fail
 /// - SecKey malloc fail
 #[inline]
 pub fn askpass<T>(prompt: &str, star: char) -> io::Result<T>
@@ -34,7 +34,7 @@ pub fn askpass<T>(prompt: &str, star: char) -> io::Result<T>
     raw_askpass(RawTTY::new()?, get_tty()?, prompt, star)
 }
 
-pub fn raw_askpass<T, I, O>(input_tty: I, mut output_tty: O, prompt: &str, star: char) -> io::Result<T>
+pub fn raw_askpass<T, I, O>(input: I, mut output: O, prompt: &str, star: char) -> io::Result<T>
     where
         T: From<Vec<u8>>,
         I: Read,
@@ -44,7 +44,7 @@ pub fn raw_askpass<T, I, O>(input_tty: I, mut output_tty: O, prompt: &str, star:
     let mut buf = SecKey::new([char::default(); 256])
         .map_err(|_| err!(Other, "SecKey malloc fail"))?;
 
-    read_from_tty(input_tty, |key| {
+    read_from_tty(input, |key| {
         let mut buf = buf.write();
         match key {
             Key::Char('\n') => return Ok(true),
@@ -64,7 +64,7 @@ pub fn raw_askpass<T, I, O>(input_tty: I, mut output_tty: O, prompt: &str, star:
         };
 
         write!(
-            output_tty,
+            output,
             "\r{} {}{}",
             prompt,
             repeat(star)
@@ -77,7 +77,7 @@ pub fn raw_askpass<T, I, O>(input_tty: I, mut output_tty: O, prompt: &str, star:
         Ok(false)
     })?;
 
-    write!(output_tty, "{}\r", clear::CurrentLine)?;
+    write!(output, "{}\r", clear::CurrentLine)?;
     let output = buf.read().iter().take(pos).collect::<String>();
     Ok(T::from(output.into_bytes()))
 }
