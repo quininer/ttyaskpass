@@ -9,10 +9,8 @@ use ttyaskpass::askpass;
 
 
 #[inline]
-fn start() -> io::Result<()> {
-    let prompt = args().skip(1).next().unwrap_or("Password:".into());
-
-    match askpass::<Bytes>(&prompt, '~') {
+fn start(prompt: &str) -> io::Result<()> {
+    match askpass::<Bytes>(prompt, '~') {
         Ok(output) => {
             let mut stdout = io::stdout();
             stdout.write(&output)?;
@@ -25,5 +23,6 @@ fn start() -> io::Result<()> {
 }
 
 fn main() {
-    start().unwrap();
+    let prompt = args().skip(1).next().unwrap_or("Password:".into());
+    start(&prompt).unwrap()
 }

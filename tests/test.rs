@@ -33,7 +33,7 @@ fn test_raw_askpass() {
 
     let input = Cursor::new(b"password\n");
     let (fake_tty, recv) = FakeTTY::new();
-    let password = raw_askpass::<Vec<u8>, _, _>(input, fake_tty, '~').unwrap();
+    let password = raw_askpass::<Vec<u8>, _, _>(input, fake_tty, "Password:", '~').unwrap();
     assert_eq!(password, b"password");
 
     let output = recv.iter().collect::<Vec<Vec<u8>>>().concat();
