@@ -67,6 +67,10 @@ pub fn read_from_tty<T, F>(raw_tty: T, mut f: F) -> io::Result<()>
     Ok(())
 }
 
+#[cfg_attr(
+    any(target_os = "macos", target_os = "ios"),
+    should_panic
+)]
 #[test]
 fn test_raw_tty_create() {
     assert!(RawTTY::new().is_ok());
