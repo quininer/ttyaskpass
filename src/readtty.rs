@@ -66,3 +66,8 @@ pub fn read_from_tty<T, F>(raw_tty: T, mut f: F) -> io::Result<()>
 
     Ok(())
 }
+
+#[test]
+fn test_raw_tty_create() {
+    assert!(RawTTY::new().is_ok());
+}

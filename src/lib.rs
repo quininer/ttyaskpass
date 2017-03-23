@@ -32,11 +32,11 @@ pub fn askpass<T>(prompt: &str, star: char) -> io::Result<T>
     where T: From<Vec<u8>>
 {
     raw_askpass(RawTTY::new()?, get_tty()?, prompt, star)
+        .map(T::from)
 }
 
-pub fn raw_askpass<T, I, O>(input: I, mut output: O, prompt: &str, star: char) -> io::Result<T>
+pub fn raw_askpass<I, O>(input: I, mut output: O, prompt: &str, star: char) -> io::Result<Vec<u8>>
     where
-        T: From<Vec<u8>>,
         I: Read,
         O: Write
 {
@@ -54,7 +54,8 @@ pub fn raw_askpass<T, I, O>(input: I, mut output: O, prompt: &str, star: char) -
             },
             Key::Backspace | Key::Delete if pos >= 1 => pos -= 1,
             Key::Ctrl('c') => return Err(err!(Interrupted, "Ctrl-c")),
-            _ => ()
+            Key::Null => (),
+            _ => return Ok(false)
         }
 
         let colors = match pos {
@@ -74,10 +75,11 @@ pub fn raw_askpass<T, I, O>(input: I, mut output: O, prompt: &str, star: char) -
                 .collect::<String>(),
             Fg(Reset)
         )?;
+
         Ok(false)
     })?;
 
     write!(output, "{}\r", clear::CurrentLine)?;
     let output = buf.read().iter().take(pos).collect::<String>();
-    Ok(T::from(output.into_bytes()))
+    Ok(output.into_bytes())
 }
