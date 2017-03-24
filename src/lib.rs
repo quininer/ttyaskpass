@@ -3,10 +3,12 @@ extern crate rand;
 extern crate seckey;
 extern crate termion;
 extern crate tiny_keccak;
+#[macro_use] extern crate nom;
 
 #[macro_use] mod utils;
-mod readtty;
-mod colorhash;
+pub mod readtty;
+pub mod colorhash;
+pub mod pinentry;
 
 use std::io::{ self, Read, Write };
 use std::iter::repeat;

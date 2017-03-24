@@ -13,9 +13,23 @@ categories = [ "command-line-utilities" ]
 name = "ttyaskpass"
 doc = false
 
+[[bin]]
+name = "ttypinentry"
+doc = false
+required-features = [ "pinentry" ]
+
 [dependencies]
 libc = "0.2"
 rand = "0.3"
 seckey = "0.5"
 termion = "1.2"
 tiny-keccak = "1.2"
+
+nom = { version = "*", optional = true }
+clap = { version = "*", optional = true }
+structopt = { version = "*", optional = true }
+structopt-derive = { version = "*", optional = true }
+
+[features]
+default = [ "pinentry" ]
+pinentry = [ "nom", "clap", "structopt", "structopt-derive" ]
