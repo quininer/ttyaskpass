@@ -33,14 +33,12 @@ use readtty::{ RawTTY, read_from_tty };
 pub fn askpass<T>(prompt: &str, star: char) -> io::Result<T>
     where T: From<Vec<u8>>
 {
-    raw_askpass(RawTTY::new()?, get_tty()?, prompt, star)
-        .map(T::from)
+    raw_askpass(&mut RawTTY::new()?, &mut get_tty()?, prompt, star)
+        .map(|pass| T::from(pass.into_bytes()))
 }
 
-pub fn raw_askpass<I, O>(input: I, mut output: O, prompt: &str, star: char) -> io::Result<Vec<u8>>
-    where
-        I: Read,
-        O: Write
+pub fn raw_askpass(input: &mut Read, output: &mut Write, prompt: &str, star: char)
+    -> io::Result<String>
 {
     let mut pos = 0;
     let mut buf = SecKey::new([char::default(); 256])
@@ -82,6 +80,6 @@ pub fn raw_askpass<I, O>(input: I, mut output: O, prompt: &str, star: char) -> i
     })?;
 
     write!(output, "{}\r", clear::CurrentLine)?;
-    let output = buf.read().iter().take(pos).collect::<String>();
-    Ok(output.into_bytes())
+    let pass = buf.read().iter().take(pos).collect::<String>();
+    Ok(pass)
 }

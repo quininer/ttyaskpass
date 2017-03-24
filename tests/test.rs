@@ -31,11 +31,12 @@ fn test_raw_askpass() {
     let start = [13, 80, 97, 115, 115, 119, 111, 114, 100, 58, 32, 27, 91, 51, 56, 59, 53, 59, 51, 48, 109, 126, 126, 27, 91, 51, 56, 59, 53, 59, 51, 48, 109, 126, 126, 27, 91, 51, 56, 59, 53, 59, 51, 48, 109, 126, 126, 27, 91, 51, 56, 59, 53, 59, 51, 48, 109, 126, 126, 27, 91, 51, 57, 109];
     let end = [13, 80, 97, 115, 115, 119, 111, 114, 100, 58, 32, 27, 91, 51, 56, 59, 53, 59, 50, 48, 56, 109, 126, 126, 27, 91, 51, 56, 59, 53, 59, 50, 50, 109, 126, 126, 27, 91, 51, 56, 59, 53, 59, 49, 52, 49, 109, 126, 126, 27, 91, 51, 56, 59, 53, 59, 57, 48, 109, 126, 126, 27, 91, 51, 57, 109, 27, 91, 50, 75, 13];
 
-    let input = Cursor::new(b"password\n");
-    let (fake_tty, recv) = FakeTTY::new();
-    let password = raw_askpass::<_, _>(input, fake_tty, "Password:", '~').unwrap();
-    assert_eq!(password, b"password");
+    let mut input = Cursor::new(b"password\n");
+    let (mut fake_tty, recv) = FakeTTY::new();
+    let password = raw_askpass(&mut input, &mut fake_tty, "Password:", '~').unwrap();
+    assert_eq!(password, "password");
 
+    drop(fake_tty);
     let output = recv.iter().collect::<Vec<Vec<u8>>>().concat();
     assert!(output.starts_with(&start));
     assert!(output.ends_with(&end));
