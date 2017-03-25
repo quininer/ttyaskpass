@@ -83,13 +83,14 @@ impl Pinentry {
         let message =
             if !self.description.is_empty() { &self.description }
             else if !self.title.is_empty() { &self.title }
-            else { "Enter your passphrase" };
+            else { "Enter your passphrase" }
+            .replace('\n', "\n\r");
         let prompt =
             if !self.prompt.is_empty() { Cow::from(format!("{}:", self.prompt.trim_right_matches(':'))) }
             else { Cow::from("Password:") };
 
         if !self.error.is_empty() {
-            dump!(WARN: tty, self.error)?;
+            dump!(WARN: tty, self.error.replace('\n', "\n\r"))?;
             self.error.clear();
         }
 
@@ -102,7 +103,8 @@ impl Pinentry {
             if !self.repeat.is_empty() {
                 let repeat_error =
                     if !self.repeat_error.is_empty() { &self.repeat_error }
-                    else { "Passphrases don't match." };
+                    else { "Passphrases don't match." }
+                    .replace('\n', "\n\r");
                 let pin2 = raw_askpass(&mut input, &mut tty, &self.repeat, '*')
                     .map(|p| Bytes::from(p.into_bytes()))?;
 
@@ -132,7 +134,8 @@ impl Pinentry {
         let message =
             if !self.description.is_empty() { &self.description }
             else if !self.title.is_empty() { &self.title }
-            else { "Confirm:" };
+            else { "Confirm:" }
+            .replace('\n', "\n\r");
         let ok =
             if !self.ok.is_empty() { &self.ok }
             else { "Ok" };
@@ -142,7 +145,7 @@ impl Pinentry {
         let notok_button = self.notok.to_lowercase().chars().next();
 
         if !self.error.is_empty() {
-            dump!(WARN: tty, self.error)?;
+            dump!(WARN: tty, self.error.replace('\n', "\n\r"))?;
             self.error.clear();
         }
 
