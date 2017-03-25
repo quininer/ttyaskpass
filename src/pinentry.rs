@@ -3,9 +3,10 @@
 use std::str;
 use std::borrow::Cow;
 use std::time::Duration;
-use std::io::{ self, Write };
+use std::fs::OpenOptions;
+use std::io::{ self, Read, Write };
+use std::os::unix::io::AsRawFd;
 use nom::{ space, is_alphabetic };
-use termion::get_tty;
 use termion::event::Key;
 use termion::color::{ Fg, Red, Reset };
 use seckey::Bytes;
@@ -58,12 +59,20 @@ pub struct Pinentry {
     pub quality_bar: String,
     pub quality_bar_tt: String,
     pub title: String,
-    pub timeout: Option<Duration>
+    pub timeout: Option<Duration>,
+
+    pub tty: String
 }
+
+pub trait ReadFd: Read + AsRawFd {}
+pub trait WriteFd: Write + AsRawFd {}
+impl<T: Read + AsRawFd> ReadFd for T {}
+impl<T: Write + AsRawFd> WriteFd for T {}
 
 impl Pinentry {
     pub fn get_pin(&mut self, output: &mut Write) -> io::Result<()> {
-        let (mut intput, mut tty) = (RawTTY::new()?, get_tty()?);
+        let mut input = RawTTY::from_tty(OpenOptions::new().read(true).open(&self.tty)?)?;
+        let mut tty = OpenOptions::new().write(true).open(&self.tty)?;
         let mut pin;
 
         let message =
@@ -82,14 +91,14 @@ impl Pinentry {
         dump!(PRINT: tty, message)?;
 
         loop {
-            pin = raw_askpass(&mut intput, &mut tty, &prompt, '*')
+            pin = raw_askpass(&mut input, &mut tty, &prompt, '*')
                 .map(|p| Bytes::from(p.into_bytes()))?;
 
             if !self.repeat.is_empty() {
                 let repeat_error =
                     if !self.repeat_error.is_empty() { &self.repeat_error }
                     else { "Passphrases don't match." };
-                let pin2 = raw_askpass(&mut intput, &mut tty, &self.repeat, '*')
+                let pin2 = raw_askpass(&mut input, &mut tty, &self.repeat, '*')
                     .map(|p| Bytes::from(p.into_bytes()))?;
 
                 if pin != pin2 {
@@ -101,7 +110,7 @@ impl Pinentry {
             break
         }
 
-        drop((intput, tty));
+        drop((input, tty));
 
         if !self.repeat.is_empty() {
             dump!(S: output, "PIN_REPEATED")?;
@@ -113,7 +122,8 @@ impl Pinentry {
     }
 
     pub fn confirm(&mut self, any_flag: bool) -> io::Result<Button> {
-        let (mut input, mut tty) = (RawTTY::new()?, get_tty()?);
+        let mut input = RawTTY::from_tty(OpenOptions::new().read(true).open(&self.tty)?)?;
+        let mut tty = OpenOptions::new().write(true).open(&self.tty)?;
 
         let message =
             if !self.description.is_empty() { &self.description }

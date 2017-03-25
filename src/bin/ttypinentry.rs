@@ -4,6 +4,7 @@ extern crate nom;
 
 use std::process;
 use std::io::{ self, Write };
+use url::form_urlencoded;
 use url::percent_encoding::percent_decode;
 use nom::IError;
 use ttyaskpass::pinentry::{ Pinentry, Button, parse_command };
@@ -14,14 +15,12 @@ use ttyaskpass::utils::*;
 fn start() -> io::Result<()> {
     let mut pinentry = Pinentry::default();
     let mut buf = String::new();
-    let stdin = io::stdin();
-    let mut stdout = io::stdout();
 
     dump!(OK: io::stdout(), START)?;
 
     loop {
         buf.clear();
-        stdin.read_line(&mut buf)?;
+        io::stdin().read_line(&mut buf)?;
 
         let (command, value) = match parse_command(buf.as_bytes()).to_full_result() {
             Ok((cmd, value)) => (
@@ -32,7 +31,7 @@ fn start() -> io::Result<()> {
             ),
             Err(err) => match err {
                 IError::Error(err) => {
-                    dump!(ERR: stdout, err)?;
+                    dump!(ERR: io::stdout(), err)?;
                     continue
                 },
                 IError::Incomplete(_) => return Err(err!(ConnectionAborted))
@@ -53,34 +52,39 @@ fn start() -> io::Result<()> {
             "SETQUALITYBAR_TT" => pinentry.quality_bar_tt = value.into(),
             "SETTITLE" => pinentry.title = value.into(),
             "SETTIMEOUT" => {
-                dump!(ERR: stdout, USER_NOT_IMPLEMENTED)?;
+                dump!(ERR: io::stdout(), USER_NOT_IMPLEMENTED)?;
                 continue
             },
+            "OPTION" => for (name, value) in form_urlencoded::parse(value.as_bytes()) {
+                if name == "ttyname" {
+                    pinentry.tty = value.into();
+                }
+            },
 
-            "GETPIN" => pinentry.get_pin(&mut stdout)?,
+            "GETPIN" => pinentry.get_pin(&mut io::stdout())?,
             cmd @ "CONFIRM" | cmd @ "MESSAGE" => {
                 match pinentry.confirm(cmd == "MESSAGE" || value == "--one-button")? {
-                    Button::Ok => dump!(OK: stdout),
-                    Button::Cancel => dump!(ERR: stdout, PINENTRY_OPERATION_CANCELLED),
-                    Button::NotOk => dump!(ERR: stdout, PINENTRY_NOT_CONFIRMED)
+                    Button::Ok => dump!(OK: io::stdout()),
+                    Button::Cancel => dump!(ERR: io::stdout(), PINENTRY_OPERATION_CANCELLED),
+                    Button::NotOk => dump!(ERR: io::stdout(), PINENTRY_NOT_CONFIRMED)
                 }?;
                 continue
             },
-            "GETINFO" => pinentry.get_info(&mut stdout, &value)?,
+            "GETINFO" => pinentry.get_info(&mut io::stdout(), &value)?,
             "BYE" => {
-                dump!(OK: stdout, CLOSE)?;
+                dump!(OK: io::stdout(), CLOSE)?;
                 return Ok(())
             },
 
-            "CLEARPASSPHRASE" | "OPTION" => (),
+            "CLEARPASSPHRASE" => (),
             "" => continue,
             _ => {
-                dump!(ERR: stdout, USER_UNKNOWN_COMMAND)?;
+                dump!(ERR: io::stdout(), USER_UNKNOWN_COMMAND)?;
                 continue
             }
         }
 
-        dump!(OK: stdout)?;
+        dump!(OK: io::stdout())?;
     }
 }
 

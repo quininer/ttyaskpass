@@ -3,6 +3,8 @@ extern crate rand;
 extern crate seckey;
 extern crate termion;
 extern crate tiny_keccak;
+
+#[cfg(feature = "pinentry")]
 #[macro_use] extern crate nom;
 
 #[macro_use] pub mod utils;
