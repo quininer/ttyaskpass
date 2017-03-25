@@ -2,7 +2,7 @@
 
 use std::process;
 use std::io::{ self, Write };
-use ttyaskpass::pinentry::{ Pinentry, parse_command };
+use ttyaskpass::pinentry::{ Pinentry, Button, parse_command };
 use ttyaskpass::utils::*;
 
 
@@ -33,19 +33,25 @@ fn start() -> io::Result<()> {
             "SETREPEATERROR" => pinentry.repeat_error = value.into(),
             "SETERROR" => pinentry.error = value.into(),
             "SETOK" => pinentry.ok = value.into(),
-            "SETNOTOK" => pinentry.not_ok = value.into(),
+            "SETNOTOK" => pinentry.notok = value.into(),
             "SETCANCEL" => pinentry.cancel = value.into(),
             "SETQUALITYBAR" => pinentry.quality_bar = value.into(),
             "SETQUALITYBAR_TT" => pinentry.quality_bar_tt = value.into(),
             "SETTITLE" => pinentry.title = value.into(),
-            "SETTIMEOUT" => pinentry.timeout = {
+            "SETTIMEOUT" => {
                 dump!(ERR: io::stdout(), USER_NOT_IMPLEMENTED)?;
                 continue
             },
 
             "GETPIN" => pinentry.get_pin(&mut io::stdout())?,
-            "CONFIRM" => pinentry.confirm(&mut io::stdout())?,
-            "MESSAGE" => (),
+            cmd @ "CONFIRM" | cmd @ "MESSAGE" => {
+                match pinentry.confirm(cmd == "MESSAGE")? {
+                    Button::Ok => dump!(OK: io::stdout()),
+                    Button::Cancel => dump!(ERR: io::stdout(), PINENTRY_OPERATION_CANCELLED),
+                    Button::NotOk => dump!(ERR: io::stdout(), PINENTRY_NOT_CONFIRMED)
+                }?;
+                continue
+            },
             "GETINFO" => (),
             "CLEARPASSPHRASE" => (),
 
@@ -54,6 +60,7 @@ fn start() -> io::Result<()> {
                 continue
             }
         }
+
         dump!(OK: io::stdout())?;
     }
 }

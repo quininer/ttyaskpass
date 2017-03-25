@@ -6,21 +6,22 @@ use std::time::Duration;
 use std::io::{ self, Write };
 use nom::{ space, is_alphabetic };
 use termion::get_tty;
+use termion::event::Key;
 use termion::color::{ Fg, Red, Reset };
 use seckey::Bytes;
-use super::readtty::RawTTY;
+use super::readtty::{ RawTTY, read_from_tty };
 use super::raw_askpass;
 
 
 #[macro_export]
 macro_rules! dump {
     ( PRINT: $tty:expr, $message:expr ) => {
-        writeln!($tty, "\r{}", $message)
+        write!($tty, "{}\n\r", $message)
     };
     ( WARN : $tty:expr, $message:expr ) => {
-        writeln!(
+        write!(
             $tty,
-            "\n\r *** {}{}{} ***\n",
+            "\n\r *** {}{}{} ***\n\n\r",
             Fg(Red), $message, Fg(Reset)
         )
     };
@@ -51,7 +52,7 @@ pub struct Pinentry {
     pub repeat_error: String,
     pub error: String,
     pub ok: String,
-    pub not_ok: String,
+    pub notok: String,
     pub cancel: String,
     pub quality_bar: String,
     pub quality_bar_tt: String,
@@ -110,19 +111,20 @@ impl Pinentry {
         Ok(())
     }
 
-    pub fn confirm(&mut self, output: &mut Write) -> io::Result<()> {
+    pub fn confirm(&mut self, any_flag: bool) -> io::Result<Button> {
         let (mut input, mut tty) = (RawTTY::new()?, get_tty()?);
 
         let message =
             if !self.description.is_empty() { &self.description }
             else if !self.title.is_empty() { &self.title }
             else { "Confirm:" };
-        let ok_button =
+        let ok =
             if !self.ok.is_empty() { &self.ok }
             else { "Ok" };
-        let cancel_button =
-            if !self.cancel.is_empty() { &self.cancel }
-            else { "Cancel" };
+        let ok_button = ok.to_lowercase().chars().next().unwrap();
+            //                                              ^- SAFE: because ok is not empty
+        let cancel_button = self.cancel.to_lowercase().chars().next();
+        let notok_button = self.notok.to_lowercase().chars().next();
 
         if !self.error.is_empty() {
             dump!(WARN: tty, self.error)?;
@@ -131,14 +133,46 @@ impl Pinentry {
 
         dump!(PRINT: tty, message)?;
 
-        loop {
-            unimplemented!();
+        if any_flag {
+            dump!(PRINT: tty, format!("{}", ok))?;
+            dump!(PRINT: tty, "Press any key to continue.")?;
+        } else {
+            dump!(PRINT: tty, format!("[{}] {}", ok_button, ok))?;
+            if let Some(button) = cancel_button {
+                dump!(PRINT: tty, format!("[{}] {}", button, self.cancel))?;
+            }
+            if let Some(button) = notok_button {
+                dump!(PRINT: tty, format!("[{}] {}", button, self.notok))?;
+            }
         }
 
-        drop((input, tty));
+        let mut button = Button::NotOk;
+        read_from_tty(&mut input, |key| {
+            match key {
+                Key::Null => return Ok(false),
+                _ if any_flag => button = Button::Ok,
+                Key::Char(c) if c == ok_button => button = Button::Ok,
+                Key::Char(c) if Some(c) == cancel_button => button = Button::Cancel,
+                Key::Char(c) if Some(c) == notok_button => button = Button::NotOk,
+                Key::Ctrl('c') => button = Button::Cancel,
+                _ => {
+                    dump!(PRINT: tty, "Invalid selection.")?;
+                    return Ok(false)
+                }
+            };
 
-        unimplemented!()
+            Ok(true)
+        })?;
+
+        Ok(button)
     }
+}
+
+#[derive(Debug)]
+pub enum Button {
+    Ok,
+    Cancel,
+    NotOk
 }
 
 named!(pub parse_command<(&str, &str)>, do_parse!(
