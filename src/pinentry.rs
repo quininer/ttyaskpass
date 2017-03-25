@@ -3,10 +3,10 @@
 use std::str;
 use std::borrow::Cow;
 use std::time::Duration;
-use std::fs::OpenOptions;
-use std::io::{ self, Read, Write };
-use std::os::unix::io::AsRawFd;
+use std::fs::{ File, OpenOptions };
+use std::io::{ self, Write };
 use nom::{ space, is_alphabetic };
+use termion::get_tty;
 use termion::event::Key;
 use termion::color::{ Fg, Red, Reset };
 use seckey::Bytes;
@@ -64,15 +64,20 @@ pub struct Pinentry {
     pub tty: String
 }
 
-pub trait ReadFd: Read + AsRawFd {}
-pub trait WriteFd: Write + AsRawFd {}
-impl<T: Read + AsRawFd> ReadFd for T {}
-impl<T: Write + AsRawFd> WriteFd for T {}
+fn get_tty_pair(tty: &str) -> io::Result<(RawTTY<File>, File)> {
+    Ok(if !tty.is_empty() {
+        (
+            RawTTY::from_tty(OpenOptions::new().read(true).open(&tty)?)?,
+            OpenOptions::new().write(true).open(&tty)?
+        )
+    } else {
+        (RawTTY::new()?, get_tty()?)
+    })
+}
 
 impl Pinentry {
     pub fn get_pin(&mut self, output: &mut Write) -> io::Result<()> {
-        let mut input = RawTTY::from_tty(OpenOptions::new().read(true).open(&self.tty)?)?;
-        let mut tty = OpenOptions::new().write(true).open(&self.tty)?;
+        let (mut input, mut tty) = get_tty_pair(&self.tty)?;
         let mut pin;
 
         let message =
@@ -122,8 +127,7 @@ impl Pinentry {
     }
 
     pub fn confirm(&mut self, any_flag: bool) -> io::Result<Button> {
-        let mut input = RawTTY::from_tty(OpenOptions::new().read(true).open(&self.tty)?)?;
-        let mut tty = OpenOptions::new().write(true).open(&self.tty)?;
+        let (mut input, mut tty) = get_tty_pair(&self.tty)?;
 
         let message =
             if !self.description.is_empty() { &self.description }
