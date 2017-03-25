@@ -10,17 +10,19 @@ use ttyaskpass::utils::*;
 fn start() -> io::Result<()> {
     let mut pinentry = Pinentry::default();
     let mut buf = String::new();
+    let stdin = io::stdin();
+    let mut stdout = io::stdout();
 
     dump!(OK: io::stdout(), START)?;
 
     loop {
         buf.clear();
-        io::stdin().read_line(&mut buf)?;
+        stdin.read_line(&mut buf)?;
 
         let (command, value) = match parse_command(buf.as_bytes()).to_result() {
             Ok((cmd, value)) => (cmd.to_uppercase(), value),
             Err(err) => {
-                dump!(ERR: io::stdout(), err)?;
+                dump!(ERR: stdout, err)?;
                 continue
             }
         };
@@ -39,16 +41,16 @@ fn start() -> io::Result<()> {
             "SETQUALITYBAR_TT" => pinentry.quality_bar_tt = value.into(),
             "SETTITLE" => pinentry.title = value.into(),
             "SETTIMEOUT" => {
-                dump!(ERR: io::stdout(), USER_NOT_IMPLEMENTED)?;
+                dump!(ERR: stdout, USER_NOT_IMPLEMENTED)?;
                 continue
             },
 
-            "GETPIN" => pinentry.get_pin(&mut io::stdout())?,
+            "GETPIN" => pinentry.get_pin(&mut stdout)?,
             cmd @ "CONFIRM" | cmd @ "MESSAGE" => {
                 match pinentry.confirm(cmd == "MESSAGE")? {
-                    Button::Ok => dump!(OK: io::stdout()),
-                    Button::Cancel => dump!(ERR: io::stdout(), PINENTRY_OPERATION_CANCELLED),
-                    Button::NotOk => dump!(ERR: io::stdout(), PINENTRY_NOT_CONFIRMED)
+                    Button::Ok => dump!(OK: stdout),
+                    Button::Cancel => dump!(ERR: stdout, PINENTRY_OPERATION_CANCELLED),
+                    Button::NotOk => dump!(ERR: stdout, PINENTRY_NOT_CONFIRMED)
                 }?;
                 continue
             },
@@ -56,12 +58,12 @@ fn start() -> io::Result<()> {
             "CLEARPASSPHRASE" => (),
 
             _ => {
-                dump!(ERR: io::stdout(), USER_UNKNOWN_COMMAND)?;
+                dump!(ERR: stdout, USER_UNKNOWN_COMMAND)?;
                 continue
             }
         }
 
-        dump!(OK: io::stdout())?;
+        dump!(OK: stdout)?;
     }
 }
 

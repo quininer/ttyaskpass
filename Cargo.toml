@@ -22,14 +22,10 @@ required-features = [ "pinentry" ]
 libc = "0.2"
 rand = "0.3"
 seckey = "0.5"
-termion = "1.2"
+termion = "1.3"
 tiny-keccak = "1.2"
-
 nom = { version = "*", optional = true }
-clap = { version = "*", optional = true }
-structopt = { version = "*", optional = true }
-structopt-derive = { version = "*", optional = true }
 
 [features]
 default = [ "pinentry" ]
-pinentry = [ "nom", "clap", "structopt", "structopt-derive" ]
+pinentry = [ "nom" ]
