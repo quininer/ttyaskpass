@@ -1,6 +1,6 @@
 [package]
 name = "ttyaskpass"
-version = "1.1.0"
+version = "1.2.0"
 authors = ["quininer kel <quininer@live.com>"]
 description = "a safely passphrase prompt library."
 repository = "https://github.com/quininer/ttyaskpass"
@@ -24,8 +24,8 @@ rand = "0.3"
 seckey = "0.5"
 termion = "1.3"
 tiny-keccak = "1.2"
-nom = { version = "*", optional = true }
-url = { version = "*", optional = true }
+nom = { version = "2.2", optional = true }
+url = { version = "1.4", optional = true }
 
 [features]
 default = [ "pinentry" ]

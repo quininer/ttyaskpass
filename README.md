@@ -25,11 +25,17 @@ fn main() {
 }
 ```
 
-see [examples/readme.rs](examples/readme.rs) and [ttyaskpass.rs](src/bin/ttyaskpass.rs).
+see [readme.rs](examples/readme.rs) and [ttyaskpass.rs](src/bin/ttyaskpass.rs).
 
 
 application:
 
 ```bash
 env SSH_ASKPASS=ttyaskpass ssh-add </dev/null
+```
+
+and
+
+```bash
+echo "pinentry-program $(which ttypinentry)" >> $HOME/.gnupg/gpg-agent.conf
 ```
