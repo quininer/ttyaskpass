@@ -1,7 +1,11 @@
+extern crate url;
+extern crate nom;
 #[macro_use] extern crate ttyaskpass;
 
 use std::process;
 use std::io::{ self, Write };
+use url::percent_encoding::percent_decode;
+use nom::IError;
 use ttyaskpass::pinentry::{ Pinentry, Button, parse_command };
 use ttyaskpass::utils::*;
 
@@ -19,11 +23,19 @@ fn start() -> io::Result<()> {
         buf.clear();
         stdin.read_line(&mut buf)?;
 
-        let (command, value) = match parse_command(buf.as_bytes()).to_result() {
-            Ok((cmd, value)) => (cmd.to_uppercase(), value),
-            Err(err) => {
-                dump!(ERR: stdout, err)?;
-                continue
+        let (command, value) = match parse_command(buf.as_bytes()).to_full_result() {
+            Ok((cmd, value)) => (
+                cmd.to_uppercase(),
+                percent_decode(value.as_bytes())
+                    .decode_utf8()
+                    .map_err(|err| err!(Other, err))?
+            ),
+            Err(err) => match err {
+                IError::Error(err) => {
+                    dump!(ERR: stdout, err)?;
+                    continue
+                },
+                IError::Incomplete(_) => return Err(err!(ConnectionAborted))
             }
         };
 
@@ -47,16 +59,21 @@ fn start() -> io::Result<()> {
 
             "GETPIN" => pinentry.get_pin(&mut stdout)?,
             cmd @ "CONFIRM" | cmd @ "MESSAGE" => {
-                match pinentry.confirm(cmd == "MESSAGE")? {
+                match pinentry.confirm(cmd == "MESSAGE" || value == "--one-button")? {
                     Button::Ok => dump!(OK: stdout),
                     Button::Cancel => dump!(ERR: stdout, PINENTRY_OPERATION_CANCELLED),
                     Button::NotOk => dump!(ERR: stdout, PINENTRY_NOT_CONFIRMED)
                 }?;
                 continue
             },
-            "GETINFO" => (),
-            "CLEARPASSPHRASE" => (),
+            "GETINFO" => pinentry.get_info(&mut stdout, &value)?,
+            "BYE" => {
+                dump!(OK: stdout, CLOSE)?;
+                return Ok(())
+            },
 
+            "CLEARPASSPHRASE" | "OPTION" => (),
+            "" => continue,
             _ => {
                 dump!(ERR: stdout, USER_UNKNOWN_COMMAND)?;
                 continue
@@ -71,6 +88,7 @@ fn main() {
     match start() {
         Ok(()) => (),
         Err(ref err) if err.kind() == io::ErrorKind::Interrupted => process::exit(1),
+        Err(ref err) if err.kind() == io::ErrorKind::ConnectionAborted => process::exit(1),
         err => err.unwrap()
     }
 }
