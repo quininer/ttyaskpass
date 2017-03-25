@@ -14,6 +14,9 @@ use super::raw_askpass;
 
 #[macro_export]
 macro_rules! dump {
+    ( PRINT: $tty:expr, $message:expr ) => {
+        writeln!($tty, "\r{}", $message)
+    };
     ( WARN : $tty:expr, $message:expr ) => {
         writeln!(
             $tty,
@@ -30,12 +33,12 @@ macro_rules! dump {
     ( OK : $tty:expr ) => {
         writeln!($tty, "OK")
     };
+    ( OK: $tty:expr, $message:expr ) => {
+        writeln!($tty, "OK {}", $message)
+    };
     ( ERR : $tty:expr, $message:expr ) => {
         writeln!($tty, "ERR {}", $message)
     };
-    ( PRINT: $tty:expr, $message:expr ) => {
-        writeln!($tty, "\r{}", $message)
-    }
 }
 
 
@@ -57,8 +60,8 @@ pub struct Pinentry {
 }
 
 impl Pinentry {
-    pub fn get_pin(&self, output: &mut Write) -> io::Result<()> {
-        let (mut raw_tty, mut tty) = (RawTTY::new()?, get_tty()?);
+    pub fn get_pin(&mut self, output: &mut Write) -> io::Result<()> {
+        let (mut intput, mut tty) = (RawTTY::new()?, get_tty()?);
         let mut pin;
 
         let message =
@@ -71,19 +74,20 @@ impl Pinentry {
 
         if !self.error.is_empty() {
             dump!(WARN: tty, self.error)?;
+            self.error.clear();
         }
 
         dump!(PRINT: tty, message)?;
 
         loop {
-            pin = raw_askpass(&mut raw_tty, &mut tty, &prompt, '*')
+            pin = raw_askpass(&mut intput, &mut tty, &prompt, '*')
                 .map(|p| Bytes::from(p.into_bytes()))?;
 
             if !self.repeat.is_empty() {
                 let repeat_error =
                     if !self.repeat_error.is_empty() { &self.repeat_error }
                     else { "Passphrases don't match." };
-                let pin2 = raw_askpass(&mut raw_tty, &mut tty, &self.repeat, '*')
+                let pin2 = raw_askpass(&mut intput, &mut tty, &self.repeat, '*')
                     .map(|p| Bytes::from(p.into_bytes()))?;
 
                 if pin != pin2 {
@@ -95,75 +99,49 @@ impl Pinentry {
             break
         }
 
-        drop((raw_tty, tty));
+        drop((intput, tty));
 
         if !self.repeat.is_empty() {
             dump!(S: output, "PIN_REPEATED")?;
         }
         dump!(D: output, unsafe { str::from_utf8_unchecked(&pin) })?;
-            // ^- SAFE: because pin from `String`.
+            //              ^- SAFE: because pin from `String`.
 
         Ok(())
     }
-}
 
-#[derive(Debug, Clone)]
-pub enum Command {
-    SetDesc(String),
-    SetPrompt(String),
-    SetKeyInfo(String),
-    SetRepeat(String),
-    SetRepeatError(String),
-    SetError(String),
-    SetOk(String),
-    SetNotOk(String),
-    SetCancel(String),
-    GetPin,
-    Confirm,
-    Message,
-    SetQualityBar(String),
-    SetQualityBarTT(String),
-    GetInfo(String),
-    SetTitle(String),
-    SetTimeout(Duration),
-    ClearPassphrase
-}
+    pub fn confirm(&mut self, output: &mut Write) -> io::Result<()> {
+        let (mut input, mut tty) = (RawTTY::new()?, get_tty()?);
 
-impl Command {
-    #[inline]
-    pub fn parse(input: &[u8]) -> io::Result<Self> {
-        let (command, value) = parse_command(input)
-            .to_result()
-            .map_err(|err| err!(Other, err))?;
-        Self::from(command, value)
-    }
+        let message =
+            if !self.description.is_empty() { &self.description }
+            else if !self.title.is_empty() { &self.title }
+            else { "Confirm:" };
+        let ok_button =
+            if !self.ok.is_empty() { &self.ok }
+            else { "Ok" };
+        let cancel_button =
+            if !self.cancel.is_empty() { &self.cancel }
+            else { "Cancel" };
 
-    pub fn from(command: &str, value: &str) -> io::Result<Self> {
-        match command {
-            "SETDESC" => Ok(Command::SetDesc(value.into())),
-            "SETPROMPT" => Ok(Command::SetPrompt(value.into())),
-            "SETKEYINFO" => Ok(Command::SetKeyInfo(value.into())),
-            "SETREPEAT" => Ok(Command::SetRepeat(value.into())),
-            "SETREPEATERROR" => Ok(Command::SetRepeatError(value.into())),
-            "SETERROR" => Ok(Command::SetError(value.into())),
-            "SETOK" => Ok(Command::SetOk(value.into())),
-            "SETNOTOK" => Ok(Command::SetNotOk(value.into())),
-            "SETCANCEL" => Ok(Command::SetCancel(value.into())),
-            "GETPIN" => Ok(Command::GetPin),
-            "CONFIRM" => Ok(Command::Confirm),
-            "MESSAGE" => Ok(Command::Message),
-            "SETQUALITYBAR" => Ok(Command::SetQualityBar(value.into())),
-            "SETQUALITYBAR_TT" => Ok(Command::SetQualityBarTT(value.into())),
-            "GETINFO" => Ok(Command::GetInfo(value.into())),
-            "SETTITLE" => Ok(Command::SetTitle(value.into())),
-            "SETTIMEOUT" => Ok(Command::SetTimeout(Duration::from_secs(value.parse().map_err(|err| err!(Other, err))?))),
-            "CLEARPASSPHRASE" => Ok(Command::ClearPassphrase),
-            _ => Err(err!(Other, "Unknown command"))
+        if !self.error.is_empty() {
+            dump!(WARN: tty, self.error)?;
+            self.error.clear();
         }
+
+        dump!(PRINT: tty, message)?;
+
+        loop {
+            unimplemented!();
+        }
+
+        drop((input, tty));
+
+        unimplemented!()
     }
 }
 
-named!(parse_command<(&str, &str)>, do_parse!(
+named!(pub parse_command<(&str, &str)>, do_parse!(
     command: map_res!(take_while!(is_alphabetic), str::from_utf8) >>
     opt!(space) >>
     value: map_res!(take_until!("\n"), str::from_utf8) >>

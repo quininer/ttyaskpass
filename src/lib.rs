@@ -5,7 +5,7 @@ extern crate termion;
 extern crate tiny_keccak;
 #[macro_use] extern crate nom;
 
-#[macro_use] mod utils;
+#[macro_use] pub mod utils;
 pub mod readtty;
 pub mod colorhash;
 pub mod pinentry;

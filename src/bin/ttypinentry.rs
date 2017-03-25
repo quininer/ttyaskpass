@@ -2,7 +2,8 @@
 
 use std::process;
 use std::io::{ self, Write };
-use ttyaskpass::pinentry::{ Pinentry, Command };
+use ttyaskpass::pinentry::{ Pinentry, parse_command };
+use ttyaskpass::utils::*;
 
 
 #[inline]
@@ -10,42 +11,49 @@ fn start() -> io::Result<()> {
     let mut pinentry = Pinentry::default();
     let mut buf = String::new();
 
-    writeln!(io::stdout(), "OK Pleased to meet you")?;
+    dump!(OK: io::stdout(), START)?;
 
     loop {
         buf.clear();
         io::stdin().read_line(&mut buf)?;
 
-        match Command::parse(buf.as_bytes()) {
+        let (command, value) = match parse_command(buf.as_bytes()).to_result() {
+            Ok((cmd, value)) => (cmd.to_uppercase(), value),
             Err(err) => {
                 dump!(ERR: io::stdout(), err)?;
                 continue
-            },
+            }
+        };
 
-            Ok(Command::SetDesc(desc)) => pinentry.description = desc,
-            Ok(Command::SetPrompt(prompt)) => pinentry.prompt = prompt,
-            Ok(Command::SetKeyInfo(keyinfo)) => pinentry.keyinfo = keyinfo,
-            Ok(Command::SetRepeat(repeat)) => pinentry.repeat = repeat,
-            Ok(Command::SetRepeatError(error)) => pinentry.repeat_error = error,
-            Ok(Command::SetError(error)) => pinentry.error = error,
-            Ok(Command::SetOk(ok)) => pinentry.ok = ok,
-            Ok(Command::SetNotOk(notok)) => pinentry.not_ok = notok,
-            Ok(Command::SetCancel(cancel)) => pinentry.cancel = cancel,
-            Ok(Command::SetQualityBar(q)) => pinentry.quality_bar = q,
-            Ok(Command::SetQualityBarTT(q)) => pinentry.quality_bar_tt = q,
-            Ok(Command::SetTitle(title)) => pinentry.title = title,
-            Ok(Command::SetTimeout(_)) => {
-                dump!(ERR: io::stdout(), "unimplemented")?;
+        match command.as_ref() {
+            "SETDESC" => pinentry.description = value.into(),
+            "SETPROMPT" => pinentry.prompt = value.into(),
+            "SETKEYINFO" => pinentry.keyinfo = value.into(),
+            "SETREPEAT" => pinentry.repeat = value.into(),
+            "SETREPEATERROR" => pinentry.repeat_error = value.into(),
+            "SETERROR" => pinentry.error = value.into(),
+            "SETOK" => pinentry.ok = value.into(),
+            "SETNOTOK" => pinentry.not_ok = value.into(),
+            "SETCANCEL" => pinentry.cancel = value.into(),
+            "SETQUALITYBAR" => pinentry.quality_bar = value.into(),
+            "SETQUALITYBAR_TT" => pinentry.quality_bar_tt = value.into(),
+            "SETTITLE" => pinentry.title = value.into(),
+            "SETTIMEOUT" => pinentry.timeout = {
+                dump!(ERR: io::stdout(), USER_NOT_IMPLEMENTED)?;
                 continue
             },
 
-            Ok(Command::GetPin) => pinentry.get_pin(&mut io::stdout())?,
-            Ok(Command::Confirm) => (),
-            Ok(Command::Message) => (),
-            Ok(Command::GetInfo(_)) => (),
-            Ok(Command::ClearPassphrase) => ()
-        }
+            "GETPIN" => pinentry.get_pin(&mut io::stdout())?,
+            "CONFIRM" => pinentry.confirm(&mut io::stdout())?,
+            "MESSAGE" => (),
+            "GETINFO" => (),
+            "CLEARPASSPHRASE" => (),
 
+            _ => {
+                dump!(ERR: io::stdout(), USER_UNKNOWN_COMMAND)?;
+                continue
+            }
+        }
         dump!(OK: io::stdout())?;
     }
 }
