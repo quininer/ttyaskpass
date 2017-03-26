@@ -76,7 +76,7 @@ fn get_tty_pair(tty: &str) -> io::Result<(RawTTY<File>, File)> {
 }
 
 impl Pinentry {
-    pub fn get_pin(&mut self, output: &mut Write) -> io::Result<()> {
+    pub fn get_pin(&mut self) -> io::Result<Bytes> {
         let (mut input, mut tty) = get_tty_pair(&self.tty)?;
         let mut pin;
 
@@ -117,15 +117,7 @@ impl Pinentry {
             break
         }
 
-        drop((input, tty));
-
-        if !self.repeat.is_empty() {
-            dump!(S: output, "PIN_REPEATED")?;
-        }
-        dump!(D: output, unsafe { str::from_utf8_unchecked(&pin) })?;
-            //              ^- SAFE: because pin from `String`.
-
-        Ok(())
+        Ok(pin)
     }
 
     pub fn confirm(&mut self, any_flag: bool) -> io::Result<Button> {

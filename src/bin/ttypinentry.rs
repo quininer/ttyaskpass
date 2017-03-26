@@ -2,7 +2,7 @@ extern crate url;
 extern crate nom;
 #[macro_use] extern crate ttyaskpass;
 
-use std::process;
+use std::{ str, process };
 use std::io::{ self, Write };
 use url::form_urlencoded;
 use url::percent_encoding::percent_decode;
@@ -51,7 +51,7 @@ fn start() -> io::Result<()> {
             "SETQUALITYBAR" => pinentry.quality_bar = value.into(),
             "SETQUALITYBAR_TT" => pinentry.quality_bar_tt = value.into(),
             "SETTITLE" => pinentry.title = value.into(),
-            "SETTIMEOUT" => {
+            "SETTIMEOUT" | "CLEARPASSPHRASE" => {
                 dump!(ERR: io::stdout(), USER_NOT_IMPLEMENTED)?;
                 continue
             },
@@ -61,7 +61,14 @@ fn start() -> io::Result<()> {
                 }
             },
 
-            "GETPIN" => pinentry.get_pin(&mut io::stdout())?,
+            "GETPIN" => {
+                let pin = pinentry.get_pin()?;
+                if !pinentry.repeat.is_empty() {
+                    dump!(S: io::stdout(), "PIN_REPEATED")?;
+                }
+                dump!(D: io::stdout(), unsafe { str::from_utf8_unchecked(&pin) })?;
+                    //                      ^- SAFE: because pin from `String`.
+            },
             cmd @ "CONFIRM" | cmd @ "MESSAGE" => {
                 match pinentry.confirm(cmd == "MESSAGE" || value == "--one-button")? {
                     Button::Ok => dump!(OK: io::stdout()),
@@ -76,7 +83,6 @@ fn start() -> io::Result<()> {
                 return Ok(())
             },
 
-            "CLEARPASSPHRASE" => (),
             "" => continue,
             _ => {
                 dump!(ERR: io::stdout(), USER_UNKNOWN_COMMAND)?;
