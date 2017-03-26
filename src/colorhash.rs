@@ -1,6 +1,6 @@
 //! Like Chroma-Hash, but with ANSI terminal colors.
 //!
-//! fork from [https://github.com/myfreeweb/colorhash256]
+//! fork from [myfreeweb/colorhash256](https://github.com/myfreeweb/colorhash256)
 
 use tiny_keccak::Keccak;
 use termion::color::AnsiValue;

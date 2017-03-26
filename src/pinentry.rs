@@ -11,7 +11,6 @@ use termion::event::Key;
 use termion::color::{ Fg, Red, Reset };
 use seckey::Bytes;
 use super::readtty::{ RawTTY, read_from_tty };
-use super::utils::PINENTRY_PARAMETER_ERROR;
 use super::raw_askpass;
 
 
@@ -175,15 +174,6 @@ impl Pinentry {
         })?;
 
         Ok(button)
-    }
-
-    pub fn get_info(&mut self, output: &mut Write, value: &str) -> io::Result<()> {
-        match value {
-            "version" => dump!(D: output, env!("CARGO_PKG_VERSION")),
-            "pid" => dump!(D: output, unsafe { ::libc::getpid() }),
-            "flavor" => dump!(D: output, "tty"),
-            _ => dump!(ERR: output, PINENTRY_PARAMETER_ERROR)
-        }
     }
 }
 

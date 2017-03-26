@@ -1,25 +1,27 @@
 extern crate url;
 extern crate nom;
+extern crate libc;
 #[macro_use] extern crate ttyaskpass;
 
 use std::{ str, process };
-use std::io::{ self, Write };
+use std::io::{ self, Read, Write, BufRead, BufReader };
 use url::percent_encoding::percent_decode;
 use nom::IError;
 use ttyaskpass::pinentry::{ Pinentry, Button, parse_command, parse_option };
-use ttyaskpass::utils::*;
+use ttyaskpass::utils::code::*;
 
 
 #[inline]
-fn start() -> io::Result<()> {
+fn start(input: &mut Read, output: &mut Write) -> io::Result<()> {
+    let mut input = BufReader::new(input);
     let mut pinentry = Pinentry::default();
     let mut buf = String::new();
 
-    dump!(OK: io::stdout(), START)?;
+    dump!(OK: output, START)?;
 
     loop {
         buf.clear();
-        io::stdin().read_line(&mut buf)?;
+        input.read_line(&mut buf)?;
 
         let (command, value) = match parse_command(buf.as_bytes()).to_full_result() {
             Ok((cmd, value)) => (
@@ -30,7 +32,7 @@ fn start() -> io::Result<()> {
             ),
             Err(err) => match err {
                 IError::Error(err) => {
-                    dump!(ERR: io::stdout(), err)?;
+                    dump!(ERR: output, err)?;
                     continue
                 },
                 IError::Incomplete(_) => return Err(err!(ConnectionAborted))
@@ -51,14 +53,14 @@ fn start() -> io::Result<()> {
             "SETQUALITYBAR_TT" => pinentry.quality_bar_tt = value.into(),
             "SETTITLE" => pinentry.title = value.into(),
             "SETTIMEOUT" | "CLEARPASSPHRASE" => {
-                dump!(ERR: io::stdout(), USER_NOT_IMPLEMENTED)?;
+                dump!(ERR: output, USER_NOT_IMPLEMENTED)?;
                 continue
             },
             "OPTION" => match parse_option(value.as_bytes()).to_full_result() {
                 Ok(("ttyname", value)) => pinentry.tty = value.into(),
                 Ok(_) => { /* ignore */ },
                 _ => {
-                    dump!(ERR: io::stdout(), PINENTRY_UNKNOWN_OPTION)?;
+                    dump!(ERR: output, PINENTRY_UNKNOWN_OPTION)?;
                     continue
                 }
             },
@@ -66,38 +68,43 @@ fn start() -> io::Result<()> {
             "GETPIN" => {
                 let pin = pinentry.get_pin()?;
                 if !pinentry.repeat.is_empty() {
-                    dump!(S: io::stdout(), "PIN_REPEATED")?;
+                    dump!(S: output, "PIN_REPEATED")?;
                 }
-                dump!(D: io::stdout(), unsafe { str::from_utf8_unchecked(&pin) })?;
+                dump!(D: output, unsafe { str::from_utf8_unchecked(&pin) })?;
                     //                      ^- SAFE: because pin from `String`.
             },
             cmd @ "CONFIRM" | cmd @ "MESSAGE" => {
                 match pinentry.confirm(cmd == "MESSAGE" || value == "--one-button")? {
-                    Button::Ok => dump!(OK: io::stdout()),
-                    Button::Cancel => dump!(ERR: io::stdout(), PINENTRY_OPERATION_CANCELLED),
-                    Button::NotOk => dump!(ERR: io::stdout(), PINENTRY_NOT_CONFIRMED)
+                    Button::Ok => dump!(OK: output),
+                    Button::Cancel => dump!(ERR: output, PINENTRY_OPERATION_CANCELLED),
+                    Button::NotOk => dump!(ERR: output, PINENTRY_NOT_CONFIRMED)
                 }?;
                 continue
             },
-            "GETINFO" => pinentry.get_info(&mut io::stdout(), &value)?,
+            "GETINFO" => match value.as_ref() {
+                "version" => dump!(D: output, env!("CARGO_PKG_VERSION")),
+                "pid" => dump!(D: output, unsafe { ::libc::getpid() }),
+                "flavor" => dump!(D: output, "tty"),
+                _ => dump!(ERR: output, PINENTRY_PARAMETER_ERROR)
+            }?,
             "BYE" => {
-                dump!(OK: io::stdout(), CLOSE)?;
+                dump!(OK: output, CLOSE)?;
                 return Ok(())
             },
 
             "" => continue,
             _ => {
-                dump!(ERR: io::stdout(), USER_UNKNOWN_COMMAND)?;
+                dump!(ERR: output, USER_UNKNOWN_COMMAND)?;
                 continue
             }
         }
 
-        dump!(OK: io::stdout())?;
+        dump!(OK: output)?;
     }
 }
 
 fn main() {
-    match start() {
+    match start(&mut io::stdin(), &mut io::stdout()) {
         Ok(()) => (),
         Err(ref err) if err.kind() == io::ErrorKind::Interrupted => process::exit(1),
         Err(ref err) if err.kind() == io::ErrorKind::ConnectionAborted => process::exit(1),
