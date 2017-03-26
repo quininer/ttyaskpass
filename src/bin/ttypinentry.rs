@@ -4,10 +4,9 @@ extern crate nom;
 
 use std::{ str, process };
 use std::io::{ self, Write };
-use url::form_urlencoded;
 use url::percent_encoding::percent_decode;
 use nom::IError;
-use ttyaskpass::pinentry::{ Pinentry, Button, parse_command };
+use ttyaskpass::pinentry::{ Pinentry, Button, parse_command, parse_option };
 use ttyaskpass::utils::*;
 
 
@@ -55,9 +54,12 @@ fn start() -> io::Result<()> {
                 dump!(ERR: io::stdout(), USER_NOT_IMPLEMENTED)?;
                 continue
             },
-            "OPTION" => for (name, value) in form_urlencoded::parse(value.as_bytes()) {
-                if name == "ttyname" {
-                    pinentry.tty = value.into();
+            "OPTION" => match parse_option(value.as_bytes()).to_full_result() {
+                Ok(("ttyname", value)) => pinentry.tty = value.into(),
+                Ok(_) => { /* ignore */ },
+                _ => {
+                    dump!(ERR: io::stdout(), PINENTRY_UNKNOWN_OPTION)?;
+                    continue
                 }
             },
 

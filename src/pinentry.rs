@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use std::time::Duration;
 use std::fs::{ File, OpenOptions };
 use std::io::{ self, Write };
-use nom::{ space, is_alphabetic };
+use nom::{ eol, not_line_ending, non_empty, space, alphanumeric, is_alphabetic };
 use termion::get_tty;
 use termion::event::Key;
 use termion::color::{ Fg, Red, Reset };
@@ -18,12 +18,12 @@ use super::raw_askpass;
 #[macro_export]
 macro_rules! dump {
     ( PRINT: $tty:expr, $message:expr ) => {
-        write!($tty, "{}\n\r", $message)
+        write!($tty, "{}\r\n", $message)
     };
     ( WARN : $tty:expr, $message:expr ) => {
         write!(
             $tty,
-            "\n\r *** {}{}{} ***\n\n\r",
+            "\r\n *** {}{}{} ***\r\n\r\n",
             Fg(Red), $message, Fg(Reset)
         )
     };
@@ -84,13 +84,13 @@ impl Pinentry {
             if !self.description.is_empty() { &self.description }
             else if !self.title.is_empty() { &self.title }
             else { "Enter your passphrase" }
-            .replace('\n', "\n\r");
+            .replace('\n', "\r\n");
         let prompt =
             if !self.prompt.is_empty() { Cow::from(format!("{}:", self.prompt.trim_right_matches(':'))) }
             else { Cow::from("Password:") };
 
         if !self.error.is_empty() {
-            dump!(WARN: tty, self.error.replace('\n', "\n\r"))?;
+            dump!(WARN: tty, self.error.replace('\n', "\r\n"))?;
             self.error.clear();
         }
 
@@ -104,7 +104,7 @@ impl Pinentry {
                 let repeat_error =
                     if !self.repeat_error.is_empty() { &self.repeat_error }
                     else { "Passphrases don't match." }
-                    .replace('\n', "\n\r");
+                    .replace('\n', "\r\n");
                 let pin2 = raw_askpass(&mut input, &mut tty, &self.repeat, '*')
                     .map(|p| Bytes::from(p.into_bytes()))?;
 
@@ -127,7 +127,7 @@ impl Pinentry {
             if !self.description.is_empty() { &self.description }
             else if !self.title.is_empty() { &self.title }
             else { "Confirm:" }
-            .replace('\n', "\n\r");
+            .replace('\n', "\r\n");
         let ok =
             if !self.ok.is_empty() { &self.ok }
             else { "Ok" };
@@ -137,7 +137,7 @@ impl Pinentry {
         let notok_button = self.notok.to_lowercase().chars().next();
 
         if !self.error.is_empty() {
-            dump!(WARN: tty, self.error.replace('\n', "\n\r"))?;
+            dump!(WARN: tty, self.error.replace('\n', "\r\n"))?;
             self.error.clear();
         }
 
@@ -197,15 +197,21 @@ pub enum Button {
 named!(pub parse_command<(&str, &str)>, do_parse!(
     command: map_res!(take_while!(is_alphabetic), str::from_utf8) >>
     opt!(space) >>
-    value: map_res!(take_until!("\n"), str::from_utf8) >>
+    value: map_res!(not_line_ending, str::from_utf8) >>
     (command, value)
 ));
 
+named!(end_of_line, alt!(eof!() | eol));
+named!(pub parse_option<(&str, &str)>, do_parse!(
+    key: map_res!(alphanumeric, str::from_utf8) >>
+    opt!(alt!(end_of_line | tag!("="))) >>
+    value: map_res!(alt!(end_of_line | non_empty), str::from_utf8) >>
+    (key, value)
+));
 
 #[test]
 fn test_parse_command() {
     let (_, (command, value)) = parse_command(b"SETDESC desc value\n").unwrap();
-
     assert_eq!(command, "SETDESC");
     assert_eq!(value, "desc value");
 
@@ -216,4 +222,15 @@ fn test_parse_command() {
     let (_, (command, value)) = parse_command(b"\n").unwrap();
     assert_eq!(command, "");
     assert_eq!(value, "");
+}
+
+#[test]
+fn test_parse_option() {
+    let (_, (name, value)) = parse_option(b"grab").unwrap();
+    assert_eq!(name, "grab");
+    assert_eq!(value, "");
+
+    let (_, (name, value)) = parse_option(b"ttyname=/dev/pts/1").unwrap();
+    assert_eq!(name, "ttyname");
+    assert_eq!(value, "/dev/pts/1");
 }

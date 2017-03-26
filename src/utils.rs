@@ -24,3 +24,4 @@ pub const USER_NOT_IMPLEMENTED: &str = "536870981 Not implemented <User defined 
 pub const PINENTRY_OPERATION_CANCELLED: &str = "83886179 Operation cancelled <Pinentry>";
 pub const PINENTRY_NOT_CONFIRMED: &str = "83886194 Not confirmed <Pinentry>";
 pub const PINENTRY_PARAMETER_ERROR: &str = "83886360 IPC parameter error <Pinentry>";
+pub const PINENTRY_UNKNOWN_OPTION: &str = "83886254 Unknown option <Pinentry>";
