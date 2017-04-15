@@ -143,7 +143,7 @@ impl Pinentry {
         dump!(PRINT: tty, message)?;
 
         if any_flag {
-            dump!(PRINT: tty, format!("{}", ok))?;
+            dump!(PRINT: tty, ok)?;
             dump!(PRINT: tty, "Press any key to continue.")?;
         } else {
             dump!(PRINT: tty, format!("[{}] {}", ok_button, ok))?;

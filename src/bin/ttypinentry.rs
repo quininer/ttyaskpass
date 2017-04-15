@@ -85,6 +85,7 @@ fn start(input: &mut Read, output: &mut Write) -> io::Result<()> {
                 "version" => dump!(D: output, env!("CARGO_PKG_VERSION")),
                 "pid" => dump!(D: output, unsafe { ::libc::getpid() }),
                 "flavor" => dump!(D: output, "tty"),
+                "ttyinfo" => dump!(D: output, "- - -"),
                 _ => dump!(ERR: output, PINENTRY_PARAMETER_ERROR)
             }?,
             "BYE" => {

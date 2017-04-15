@@ -29,8 +29,8 @@ use readtty::{ RawTTY, read_from_tty };
 /// ### Fail When:
 /// - IO Error
 /// - User Interrupted
-/// - RawTTY create fail
-/// - SecKey malloc fail
+/// - `RawTTY` create fail
+/// - `SecKey` malloc fail
 #[inline]
 pub fn askpass<T>(prompt: &str, star: char) -> io::Result<T>
     where T: From<Vec<u8>>

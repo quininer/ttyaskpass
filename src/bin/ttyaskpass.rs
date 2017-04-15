@@ -14,12 +14,12 @@ fn start(prompt: &str) -> io::Result<()> {
     let pass = askpass::<Bytes>(prompt, '*')?;
 
     let mut stdout = io::stdout();
-    stdout.write(&pass)?;
+    stdout.write_all(&pass)?;
     stdout.flush()
 }
 
 fn main() {
-    let prompt = args().skip(1).next()
+    let prompt = args().nth(1)
         .map(Cow::from)
         .unwrap_or(Cow::from("Password:"));
     match start(&prompt) {

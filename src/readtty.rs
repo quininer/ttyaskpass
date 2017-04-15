@@ -8,7 +8,7 @@ use termion::event::Key;
 use termion::input::TermRead;
 
 
-/// RawTTY wrapper.
+/// raw tty wrapper.
 pub struct RawTTY<F: AsRawFd> {
     prev_termios: termios,
     tty: F
@@ -30,7 +30,7 @@ impl<F: AsRawFd> RawTTY<F> {
             if tcgetattr(tty_fd, &mut ios) != 0 {
                 return Err(io::Error::last_os_error())
             }
-            let prev_termios = ios.clone();
+            let prev_termios = ios;
 
             cfmakeraw(&mut ios);
 
