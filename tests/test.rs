@@ -33,7 +33,8 @@ fn test_raw_askpass() {
 
     let mut input = Cursor::new(b"password\n");
     let (mut fake_tty, recv) = FakeTTY::new();
-    let password = raw_askpass(&mut input, &mut fake_tty, "Password:", '~').unwrap();
+    let (buf, pos) = raw_askpass(&mut input, &mut fake_tty, "Password:", '~').unwrap();
+    let password = buf.read()[..pos].iter().collect::<String>();
     assert_eq!(password, "password");
 
     drop(fake_tty);

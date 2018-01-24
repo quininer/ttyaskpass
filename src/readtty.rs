@@ -8,14 +8,12 @@ use termion::event::Key;
 use termion::input::TermRead;
 
 
-/// raw tty wrapper.
 pub struct RawTTY<F: AsRawFd> {
     prev_termios: termios,
     tty: F
 }
 
 impl RawTTY<File> {
-    #[inline]
     pub fn new() -> io::Result<RawTTY<File>> {
         Self::from_tty(get_tty()?)
     }

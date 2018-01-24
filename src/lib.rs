@@ -2,15 +2,10 @@ extern crate libc;
 extern crate rand;
 extern crate seckey;
 extern crate termion;
-extern crate tiny_keccak;
+extern crate sha3;
 
-#[cfg(feature = "pinentry")]
-#[macro_use] extern crate nom;
-
-#[macro_use] pub mod utils;
 pub mod readtty;
 pub mod colorhash;
-pub mod pinentry;
 
 use std::io::{ self, Read, Write };
 use std::iter::repeat;
@@ -24,27 +19,29 @@ use colorhash::{ hash_as_ansi, hash_chars_as_ansi };
 use readtty::{ RawTTY, read_from_tty };
 
 
-/// askpass.
+/// Askpass
 ///
 /// ### Fail When:
+///
 /// - IO Error
 /// - User Interrupted
 /// - `RawTTY` create fail
 /// - `SecKey` malloc fail
 #[inline]
-pub fn askpass<T>(prompt: &str, star: char) -> io::Result<T>
-    where T: From<Vec<u8>>
+pub fn askpass<F>(prompt: &str, f: F)
+    -> io::Result<()>
+    where F: FnOnce(&[char]) -> io::Result<()>
 {
-    raw_askpass(&mut RawTTY::new()?, &mut get_tty()?, prompt, star)
-        .map(|pass| T::from(pass.into_bytes()))
+    raw_askpass(&mut RawTTY::new()?, &mut get_tty()?, prompt, '*')
+        .and_then(|(buf, pos)| f(&buf.read()[..pos]))
 }
 
 pub fn raw_askpass(input: &mut Read, output: &mut Write, prompt: &str, star: char)
-    -> io::Result<String>
+    -> io::Result<(SecKey<[char; 256]>, usize)>
 {
     let mut pos = 0;
     let mut buf = SecKey::new([char::default(); 256])
-        .map_err(|_| err!(Other, "SecKey malloc fail"))?;
+        .map_err(|_| io::Error::new(io::ErrorKind::Other, "SecKey malloc fail"))?;
 
     read_from_tty(input, |key| {
         let mut buf = buf.write();
@@ -55,14 +52,14 @@ pub fn raw_askpass(input: &mut Read, output: &mut Write, prompt: &str, star: cha
                 pos += 1;
             },
             Key::Backspace | Key::Delete if pos >= 1 => pos -= 1,
-            Key::Ctrl('c') => return Err(err!(Interrupted, "Ctrl-c")),
+            Key::Ctrl('c') => return Err(io::Error::new(io::ErrorKind::Interrupted, "Ctrl-c")),
             Key::Null => (),
             _ => return Ok(false)
         }
 
         let colors = match pos {
             0 => [AnsiValue(30); 8],
-            1...7 => hash_as_ansi(&[random()]),
+            1...7 => hash_as_ansi(&[random(), random(), random()]),
             p => hash_chars_as_ansi(&buf[..p])
         };
 
@@ -82,6 +79,6 @@ pub fn raw_askpass(input: &mut Read, output: &mut Write, prompt: &str, star: cha
     })?;
 
     write!(output, "{}\r", clear::CurrentLine)?;
-    let pass = buf.read().iter().take(pos).collect::<String>();
-    Ok(pass)
+
+    Ok((buf, pos))
 }

@@ -2,17 +2,16 @@
 //!
 //! fork from [myfreeweb/colorhash256](https://github.com/myfreeweb/colorhash256)
 
-use tiny_keccak::Keccak;
+use sha3::{ Digest, Sha3_256 };
 use termion::color::AnsiValue;
 
 /// Hashes given bytes and encodes the result as ANSI terminal colors.
 pub fn hash_as_ansi(bytes: &[u8]) -> [AnsiValue; 8] {
     let mut colors = [AnsiValue(0); 8];
-    let mut hash = [0; 8];
 
-    let mut sha3 = Keccak::new_sha3_256();
-    sha3.update(bytes);
-    sha3.finalize(&mut hash);
+    let mut sha3 = Sha3_256::default();
+    sha3.input(bytes);
+    let hash = sha3.result();
 
     for i in 0..8 {
         colors[i] = AnsiValue(16 + (hash[i] % 216));
@@ -23,15 +22,14 @@ pub fn hash_as_ansi(bytes: &[u8]) -> [AnsiValue; 8] {
 /// Hashes given chars and encodes the result as ANSI terminal colors.
 pub fn hash_chars_as_ansi(chars: &[char]) -> [AnsiValue; 8] {
     let mut buf = [0; 4];
-    let mut hash = [0; 8];
     let mut colors = [AnsiValue(0); 8];
-    let mut sha3 = Keccak::new_sha3_256();
+    let mut sha3 = Sha3_256::default();
 
     for c in chars {
-        sha3.update(c.encode_utf8(&mut buf).as_bytes());
+        sha3.input(c.encode_utf8(&mut buf).as_bytes());
     }
 
-    sha3.finalize(&mut hash);
+    let hash = sha3.result();
 
     for i in 0..8 {
         colors[i] = AnsiValue(16 + (hash[i] % 216));

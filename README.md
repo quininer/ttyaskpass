@@ -6,7 +6,7 @@
 
 ![ttyaskpass](ttyaskpass.png)
 
-a safely passphrase prompt library and application,
+A safely passphrase prompt library and application,
 support [Chroma-Hash](https://github.com/mattt/Chroma-Hash/)-like colorhash,
 use [seckey](https://github.com/quininer/seckey) protecte password.
 
@@ -20,8 +20,11 @@ extern crate ttyaskpass;
 use ttyaskpass::askpass;
 
 fn main() {
-	let pass = askpass::<Vec<u8>>("Password:", '*').unwrap();
-	println!("Your password is {}", String::from_utf8(pass).unwrap());
+	askpass("Password:", |pass| {
+        print!("Your password is {}", pass.iter().collect::<String>());
+
+        Ok(())
+    }).unwrap();
 }
 ```
 
@@ -32,10 +35,4 @@ application:
 
 ```bash
 env SSH_ASKPASS=ttyaskpass ssh-add </dev/null
-```
-
-and
-
-```bash
-echo "pinentry-program $(which ttypinentry)" >> $HOME/.gnupg/gpg-agent.conf
 ```

@@ -5,16 +5,21 @@ use std::process;
 use std::env::args;
 use std::borrow::Cow;
 use std::io::{ self, Write };
-use seckey::Bytes;
 use ttyaskpass::askpass;
 
 
 #[inline]
 fn start(prompt: &str) -> io::Result<()> {
-    let pass = askpass::<Bytes>(prompt, '*')?;
-
     let mut stdout = io::stdout();
-    stdout.write_all(&pass)?;
+
+    askpass(prompt, |pass| {
+        for p in pass {
+            write!(stdout, "{}", p)?;
+        }
+
+        Ok(())
+    })?;
+
     stdout.flush()
 }
 
