@@ -11,15 +11,7 @@ use ttyaskpass::askpass;
 #[inline]
 fn start(prompt: &str) -> io::Result<()> {
     let mut stdout = io::stdout();
-
-    askpass(prompt, |pass| {
-        for p in pass {
-            write!(stdout, "{}", p)?;
-        }
-
-        Ok(())
-    })?;
-
+    askpass(prompt, |pass| write!(stdout, "{}", pass))?;
     stdout.flush()
 }
 

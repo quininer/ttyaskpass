@@ -10,7 +10,7 @@ pub mod colorhash;
 use std::io::{ self, Read, Write };
 use std::iter::repeat;
 use rand::random;
-use seckey::SecKey;
+use seckey::{ SecKey, TempKey };
 use termion::clear;
 use termion::get_tty;
 use termion::event::Key;
@@ -28,12 +28,16 @@ use readtty::{ RawTTY, read_from_tty };
 /// - `RawTTY` create fail
 /// - `SecKey` malloc fail
 #[inline]
-pub fn askpass<F>(prompt: &str, f: F)
-    -> io::Result<()>
-    where F: FnOnce(&[char]) -> io::Result<()>
+pub fn askpass<F, T>(prompt: &str, f: F)
+    -> io::Result<T>
+    where F: FnOnce(&str) -> io::Result<T>
 {
     raw_askpass(&mut RawTTY::new()?, &mut get_tty()?, prompt, '*')
-        .and_then(|(buf, pos)| f(&buf.read()[..pos]))
+        .and_then(|(buf, pos)| {
+            let mut buf = buf.read().iter().take(pos).collect::<String>();
+            let buf = TempKey::from_str(&mut buf);
+            f(&buf)
+        })
 }
 
 pub fn raw_askpass(input: &mut Read, output: &mut Write, prompt: &str, star: char)
@@ -59,7 +63,7 @@ pub fn raw_askpass(input: &mut Read, output: &mut Write, prompt: &str, star: cha
 
         let colors = match pos {
             0 => [AnsiValue(30); 8],
-            1...7 => hash_as_ansi(&[random(), random(), random()]),
+            1...7 => hash_as_ansi(&[random(), random(), random(), random()]),
             p => hash_chars_as_ansi(&buf[..p])
         };
 
