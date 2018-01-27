@@ -35,7 +35,7 @@ pub fn askpass<F, T>(prompt: &str, f: F)
     raw_askpass(&mut RawTTY::new()?, &mut get_tty()?, prompt, '*')
         .and_then(|(buf, pos)| {
             let mut buf = buf.read().iter().take(pos).collect::<String>();
-            let buf = TempKey::from_str(&mut buf);
+            let buf = TempKey::from(&mut buf as &mut str);
             f(&buf)
         })
 }
