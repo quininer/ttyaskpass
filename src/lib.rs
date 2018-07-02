@@ -1,21 +1,20 @@
 extern crate libc;
 extern crate rand;
-extern crate seckey;
-extern crate termion;
 extern crate sha3;
+extern crate digest;
+extern crate termion;
+extern crate seckey;
 
 pub mod readtty;
 pub mod colorhash;
 
 use std::io::{ self, Read, Write };
 use std::iter::repeat;
-use rand::random;
 use seckey::{ SecKey, TempKey };
-use termion::clear;
-use termion::get_tty;
+use termion::{ clear, get_tty };
 use termion::event::Key;
 use termion::color::{ Fg, Reset, AnsiValue };
-use colorhash::{ hash_as_ansi, hash_chars_as_ansi };
+use colorhash::{ hash_chars_as_ansi, random_ansi };
 use readtty::{ RawTTY, read_from_tty };
 
 
@@ -48,7 +47,10 @@ pub fn raw_askpass(input: &mut Read, output: &mut Write, prompt: &str, star: cha
         .map_err(|_| io::Error::new(io::ErrorKind::Other, "SecKey malloc fail"))?;
 
     read_from_tty(input, |key| {
+        let mut chars_buf = [0; 4];
+        let mut chars_buf = TempKey::from(&mut chars_buf);
         let mut buf = buf.write();
+
         match key {
             Key::Char('\n') => return Ok(true),
             Key::Char(c) => if pos < buf.len() {
@@ -62,9 +64,9 @@ pub fn raw_askpass(input: &mut Read, output: &mut Write, prompt: &str, star: cha
         }
 
         let colors = match pos {
-            0 => [AnsiValue(30); 8],
-            1...7 => hash_as_ansi(&[random(), random(), random(), random()]),
-            p => hash_chars_as_ansi(&buf[..p])
+            0 => [30; 4],
+            1...7 => random_ansi(),
+            p => hash_chars_as_ansi(&mut chars_buf, &buf[..p])
         };
 
         write!(
@@ -73,8 +75,8 @@ pub fn raw_askpass(input: &mut Read, output: &mut Write, prompt: &str, star: cha
             prompt,
             repeat(star)
                 .take(4)
-                .zip(&colors[..4])
-                .map(|(star, &color)| format!("{}{}{}", Fg(color), star, star))
+                .zip(&colors)
+                .map(|(star, &color)| format!("{}{}{}", Fg(AnsiValue(color)), star, star))
                 .collect::<String>(),
             Fg(Reset)
         )?;
