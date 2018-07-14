@@ -27,11 +27,14 @@ use readtty::{ RawTTY, read_from_tty };
 /// - `RawTTY` create fail
 /// - `SecKey` malloc fail
 #[inline]
-pub fn askpass<F, T>(prompt: &str, f: F)
-    -> io::Result<T>
-    where F: FnOnce(&str) -> io::Result<T>
+pub fn askpass<E, F, T>(prompt: &str, f: F)
+    -> Result<T, E>
+    where
+        F: FnOnce(&str) -> Result<T, E>,
+        E: From<io::Error>
 {
     raw_askpass(&mut RawTTY::new()?, &mut get_tty()?, prompt, '*')
+        .map_err(Into::into)
         .and_then(|(buf, pos)| {
             let mut buf = buf.read().iter().take(pos).collect::<String>();
             let buf = TempKey::from(&mut buf as &mut str);
