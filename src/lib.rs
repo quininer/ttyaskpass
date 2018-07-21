@@ -2,29 +2,26 @@ extern crate libc;
 extern crate rand;
 extern crate sha3;
 extern crate digest;
-extern crate termion;
+extern crate mortal;
 extern crate seckey;
 
-pub mod readtty;
-pub mod colorhash;
+mod readtty;
+mod colorhash;
 
-use std::io::{ self, Read, Write };
-use std::iter::repeat;
+use std::io;
+use mortal::{ Event, Key };
 use seckey::{ SecKey, TempKey };
-use termion::{ clear, get_tty };
-use termion::event::Key;
-use termion::color::{ Fg, Reset, AnsiValue };
-use colorhash::{ hash_chars_as_ansi, random_ansi };
-use readtty::{ RawTTY, read_from_tty };
+use colorhash::{ ColorStar, hash_chars_as_color, random_color };
+use readtty::Term;
 
 
-/// Askpass
+/// AskPass
 ///
 /// ### Fail When:
 ///
 /// - IO Error
 /// - User Interrupted
-/// - `RawTTY` create fail
+/// - Terminal prepare fail
 /// - `SecKey` malloc fail
 #[inline]
 pub fn askpass<E, F, T>(prompt: &str, f: F)
@@ -33,7 +30,7 @@ pub fn askpass<E, F, T>(prompt: &str, f: F)
         F: FnOnce(&str) -> Result<T, E>,
         E: From<io::Error>
 {
-    raw_askpass(&mut RawTTY::new()?, &mut get_tty()?, prompt, '*')
+    raw_askpass(prompt, '*')
         .map_err(Into::into)
         .and_then(|(buf, pos)| {
             let mut buf = buf.read().iter().take(pos).collect::<String>();
@@ -42,52 +39,47 @@ pub fn askpass<E, F, T>(prompt: &str, f: F)
         })
 }
 
-pub fn raw_askpass(input: &mut Read, output: &mut Write, prompt: &str, star: char)
+pub fn raw_askpass(prompt: &str, star: char)
     -> io::Result<(SecKey<[char; 256]>, usize)>
 {
+    let terminal = Term::new()?;
+
     let mut pos = 0;
     let mut buf = SecKey::new([char::default(); 256])
         .map_err(|_| io::Error::new(io::ErrorKind::Other, "SecKey malloc fail"))?;
 
-    read_from_tty(input, |key| {
+    terminal.read_event(|event| {
         let mut chars_buf = [0; 4];
         let mut chars_buf = TempKey::from(&mut chars_buf);
         let mut buf = buf.write();
 
-        match key {
-            Key::Char('\n') => return Ok(true),
-            Key::Char(c) => if pos < buf.len() {
+        match event {
+            Event::Key(Key::Enter) => return Ok(true),
+            Event::Key(Key::Char(c)) => if pos < buf.len() {
                 buf[pos] = c;
                 pos += 1;
             },
-            Key::Backspace | Key::Delete if pos >= 1 => pos -= 1,
-            Key::Ctrl('c') => return Err(io::Error::new(io::ErrorKind::Interrupted, "Ctrl-c")),
-            Key::Null => (),
+            Event::Key(Key::Backspace) | Event::Key(Key::Delete) if pos >= 1 => pos -= 1,
+            Event::Key(Key::Ctrl('c')) =>
+                return Err(io::Error::new(io::ErrorKind::Interrupted, "Ctrl-c")),
+            Event::NoEvent => (),
             _ => return Ok(false)
         }
 
         let colors = match pos {
-            0 => [30; 4],
-            1...7 => random_ansi(),
-            p => hash_chars_as_ansi(&mut chars_buf, &buf[..p])
+            0 => ColorStar::from(star),
+            1...7 => random_color(star),
+            p => hash_chars_as_color(star, &mut chars_buf, &buf[..p])
         };
 
-        write!(
-            output,
-            "\r{} {}{}",
-            prompt,
-            repeat(star)
-                .take(4)
-                .zip(&colors)
-                .map(|(star, &color)| format!("{}{}{}", Fg(AnsiValue(color)), star, star))
-                .collect::<String>(),
-            Fg(Reset)
-        )?;
+        write!(terminal.inner, "\r{}: ", prompt)?;
+        colors.write(&terminal.inner)?;
 
         Ok(false)
     })?;
 
-    write!(output, "{}\r", clear::CurrentLine)?;
+    terminal.inner.clear_to_line_end()?;
+    write!(terminal.inner, "\r")?;
 
     Ok((buf, pos))
 }

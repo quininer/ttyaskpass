@@ -1,87 +1,43 @@
-use std::mem;
-use std::fs::File;
-use std::io::{ self, Read, Write };
-use std::os::unix::io::AsRawFd;
-use libc::{ termios, tcgetattr, tcsetattr, cfmakeraw };
-use termion::get_tty;
-use termion::event::Key;
-use termion::input::TermRead;
+use std::io;
+use mortal::{ Event, Terminal, PrepareState };
 
 
-pub struct RawTTY<F: AsRawFd> {
-    prev_termios: termios,
-    tty: F
+pub struct Term {
+    pub inner: Terminal,
+    state: Option<PrepareState>
 }
 
-impl RawTTY<File> {
-    pub fn new() -> io::Result<RawTTY<File>> {
-        Self::from_tty(get_tty()?)
-    }
-}
+impl Term {
+    pub fn new() -> io::Result<Term> {
+        let terminal = Terminal::new()?;
+        let state = terminal.prepare(Default::default())?;
 
-impl<F: AsRawFd> RawTTY<F> {
-    pub fn from_tty(tty: F) -> io::Result<RawTTY<F>> {
-        unsafe {
-            let tty_fd = tty.as_raw_fd();
-            let mut ios = mem::zeroed();
-
-            if tcgetattr(tty_fd, &mut ios) != 0 {
-                return Err(io::Error::last_os_error())
-            }
-            let prev_termios = ios;
-
-            cfmakeraw(&mut ios);
-
-            if tcsetattr(tty_fd, 0, &ios) != 0 {
-                return Err(io::Error::last_os_error())
-            }
-
-            Ok(RawTTY { prev_termios, tty })
-        }
-    }
-}
-
-impl<F: AsRawFd + Read> Read for RawTTY<F> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.tty.read(buf)
-    }
-}
-
-impl<F: AsRawFd + Write> Write for RawTTY<F> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.tty.write(buf)
+        Ok(Term { inner: terminal, state: Some(state) })
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        self.tty.flush()
-    }
-}
-
-impl<F: AsRawFd> Drop for RawTTY<F> {
-    fn drop(&mut self) {
-        unsafe {
-            tcsetattr(self.tty.as_raw_fd(), 0, &self.prev_termios);
-        }
-    }
-}
-
-pub fn read_from_tty<T, F>(raw_tty: T, mut f: F) -> io::Result<()>
-    where
-        T: Read,
-        F: FnMut(Key) -> io::Result<bool>
-{
-    for key in Some(Ok(Key::Null)).into_iter()
-        .chain(raw_tty.keys())
+    pub fn read_event<F>(&self, mut f: F) -> io::Result<()>
+        where F: FnMut(Event) -> io::Result<bool>
     {
-        if f(key?)? {
-            break
+        if f(Event::NoEvent)? {
+            return Ok(());
         }
-    }
 
-    Ok(())
+        loop {
+            if let Some(ev) = self.inner.read_event(None)? {
+                if f(ev)? {
+                    break
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
-#[test]
-fn test_raw_tty_create() {
-    assert!(RawTTY::new().is_ok());
+impl Drop for Term {
+    fn drop(&mut self) {
+        if let Some(state) = self.state.take() {
+            let _ = self.inner.restore(state);
+        }
+    }
 }
