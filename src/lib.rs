@@ -72,14 +72,14 @@ pub fn raw_askpass(prompt: &str, star: char)
             p => hash_chars_as_color(star, &mut chars_buf, &buf[..p])
         };
 
-        write!(terminal.inner, "\r{}: ", prompt)?;
+        write!(terminal.inner, "\r{} ", prompt)?;
         colors.write(&terminal.inner)?;
 
         Ok(false)
     })?;
 
-    terminal.inner.clear_to_line_end()?;
     write!(terminal.inner, "\r")?;
+    terminal.inner.clear_to_line_end()?;
 
     Ok((buf, pos))
 }
