@@ -1,5 +1,6 @@
 use std::io;
 use mortal::{ Event, Terminal, PrepareState };
+#[cfg(unix)] use mortal::unix::OpenTerminalExt;
 
 
 pub struct Term {
@@ -9,7 +10,12 @@ pub struct Term {
 
 impl Term {
     pub fn new() -> io::Result<Term> {
+        #[cfg(not(unix))]
         let terminal = Terminal::new()?;
+
+        #[cfg(unix)]
+        let terminal = Terminal::from_path("/dev/tty")?;
+
         let state = terminal.prepare(Default::default())?;
 
         Ok(Term { inner: terminal, state: Some(state) })

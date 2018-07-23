@@ -17,6 +17,6 @@ doc = false
 libc = "0.2"
 rand = "0.5"
 seckey = "0.9"
-mortal = "0.1"
+mortal = { git = "https://github.com/murarth/mortal" }
 sha3 = "0.7"
 digest = "0.7"
