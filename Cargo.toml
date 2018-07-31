@@ -13,6 +13,9 @@ categories = [ "command-line-utilities" ]
 name = "ttyaskpass"
 doc = false
 
+[features]
+nightly = [ "seckey/nightly" ]
+
 [dependencies]
 libc = "0.2"
 rand = "0.5"
