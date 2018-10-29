@@ -1,7 +1,6 @@
 extern crate libc;
 extern crate rand;
 extern crate sha3;
-extern crate digest;
 extern crate mortal;
 extern crate seckey;
 

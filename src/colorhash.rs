@@ -5,7 +5,7 @@
 use std::io;
 use rand::{ Rng, thread_rng };
 use sha3::Shake256;
-use digest::{ Input, ExtendableOutput, XofReader };
+use sha3::digest::{ Input, ExtendableOutput, XofReader };
 use mortal::{ Terminal, Color };
 
 
@@ -53,7 +53,7 @@ pub fn hash_chars_as_color(star: char, buf: &mut [u8; 4], chars: &[char]) -> Col
     let mut hasher = Shake256::default();
 
     for c in chars {
-        hasher.process(c.encode_utf8(buf).as_bytes());
+        hasher.input(c.encode_utf8(buf).as_bytes());
     }
 
     hasher.xof_result().read(&mut colors);
