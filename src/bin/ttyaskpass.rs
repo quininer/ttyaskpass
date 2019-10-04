@@ -1,17 +1,16 @@
-extern crate seckey;
-extern crate ttyaskpass;
-
 use std::process;
 use std::env::args;
 use std::borrow::Cow;
 use std::io::{ self, Write };
-use ttyaskpass::askpass;
+use ttyaskpass::AskPass;
 
 
 #[inline]
 fn start(prompt: &str) -> io::Result<()> {
     let mut stdout = io::stdout();
-    askpass(prompt, |pass| write!(stdout, "{}", pass))?;
+    let mut askpass = AskPass::new(vec![0; 256].into_boxed_slice());
+    let pass = askpass.askpass(prompt)?;
+    stdout.write_all(pass)?;
     stdout.flush()
 }
 

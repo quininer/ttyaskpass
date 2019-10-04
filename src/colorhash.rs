@@ -48,14 +48,10 @@ impl ColorStar {
 
 
 /// Hashes given chars and encodes the result as ANSI terminal colors.
-pub fn hash_chars_as_color(star: char, buf: &mut [u8; 4], chars: &[char]) -> ColorStar {
+pub fn hash_chars_as_color(star: char, chars: &[u8]) -> ColorStar {
     let mut colors = [0; 4];
     let mut hasher = Shake256::default();
-
-    for c in chars {
-        hasher.input(c.encode_utf8(buf).as_bytes());
-    }
-
+    hasher.input(chars);
     hasher.xof_result().read(&mut colors);
 
     mask_colors(&mut colors);

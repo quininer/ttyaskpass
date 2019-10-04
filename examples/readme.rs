@@ -1,13 +1,15 @@
-extern crate ttyaskpass;
-
-use std::io;
-use ttyaskpass::askpass;
+use std::io::{ self, Write };
+use ttyaskpass::AskPass;
 
 
-fn main() {
-    askpass("Password:", |pass| -> io::Result<()> {
-        print!("Your password is {}", pass);
+fn main() -> io::Result<()> {
+    let mut cli = AskPass::new([0; 32]);
+    let pass = cli.askpass("Password:")?;
 
-        Ok(())
-    }).unwrap();
+    let mut stdout = io::stdout();
+    write!(&mut stdout, "Your password is ")?;
+    stdout.write_all(pass)?;
+    stdout.flush()?;
+
+    Ok(())
 }

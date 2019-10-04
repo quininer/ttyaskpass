@@ -7,8 +7,7 @@
 ![ttyaskpass](ttyaskpass.png)
 
 A safely passphrase prompt library and application,
-support [Chroma-Hash](https://github.com/mattt/Chroma-Hash/)-like colorhash,
-use [seckey](https://github.com/quininer/seckey) protecte password.
+support [Chroma-Hash](https://github.com/mattt/Chroma-Hash/)-like colorhash.
 
 usage
 -----
@@ -16,17 +15,20 @@ usage
 library:
 
 ```rust
-extern crate ttyaskpass;
+use std::io::{ self, Write };
+use ttyaskpass::AskPass;
 
-use std::io;
-use ttyaskpass::askpass;
 
-fn main() {
-    askpass("Password:", |pass| -> io::Result<()> {
-        print!("Your password is {}", pass);
+fn main() -> io::Result<()> {
+    let mut cli = AskPass::new([0; 32]);
+    let pass = cli.askpass("Password:")?;
 
-        Ok(())
-    }).unwrap();
+    let mut stdout = io::stdout();
+    write!(&mut stdout, "Your password is ")?;
+    stdout.write_all(pass)?;
+    stdout.flush()?;
+
+    Ok(())
 }
 ```
 

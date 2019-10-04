@@ -1,84 +1,81 @@
-extern crate libc;
-extern crate rand;
-extern crate sha3;
-extern crate mortal;
-extern crate seckey;
-
 mod readtty;
 mod colorhash;
 
 use std::io;
 use mortal::{ Event, Key };
-use seckey::{ SecKey, TempKey };
 use colorhash::{ ColorStar, hash_chars_as_color, random_color };
 use readtty::Term;
 
 
-/// AskPass
-///
-/// ### Fail When:
-///
-/// - IO Error
-/// - User Interrupted
-/// - Terminal prepare fail
-/// - `SecKey` malloc fail
-#[inline]
-pub fn askpass<E, F, T>(prompt: &str, f: F)
-    -> Result<T, E>
-    where
-        F: FnOnce(&str) -> Result<T, E>,
-        E: From<io::Error>
-{
-    raw_askpass(prompt, '*')
-        .map_err(Into::into)
-        .and_then(|(buf, pos)| {
-            let mut buf = buf.read().iter().take(pos).collect::<String>();
-            let buf = TempKey::from(&mut buf as &mut str);
-            f(&buf)
-        })
+pub struct AskPass<B> {
+    star: char,
+    buf: B
 }
 
-pub fn raw_askpass(prompt: &str, star: char)
-    -> io::Result<(SecKey<[char; 256]>, usize)>
-{
-    let terminal = Term::new()?;
+impl<B: AsMut<[u8]>> AskPass<B> {
+    pub fn new(buf: B) -> AskPass<B> {
+        AskPass { star: '*', buf }
+    }
 
-    let mut pos = 0;
-    let mut buf = SecKey::new([char::default(); 256])
-        .map_err(|_| io::Error::new(io::ErrorKind::Other, "SecKey malloc fail"))?;
+    pub fn with_star(mut self, star: char) -> AskPass<B> {
+        self.star = star;
+        self
+    }
 
-    terminal.read_event(|event| {
-        let mut chars_buf = [0; 4];
-        let mut chars_buf = TempKey::from(&mut chars_buf);
-        let mut buf = buf.write();
+    pub fn as_buffer(&self) -> &B {
+        &self.buf
+    }
 
-        match event {
-            Event::Key(Key::Enter) => return Ok(true),
-            Event::Key(Key::Char(c)) => if pos < buf.len() {
-                buf[pos] = c;
-                pos += 1;
-            },
-            Event::Key(Key::Backspace) | Event::Key(Key::Delete) if pos >= 1 => pos -= 1,
-            Event::Key(Key::Ctrl('c')) =>
-                return Err(io::Error::new(io::ErrorKind::Interrupted, "Ctrl-c")),
-            Event::NoEvent => (),
-            _ => return Ok(false)
-        }
+    pub fn into_buffer(self) -> B {
+        self.buf
+    }
+}
 
-        let colors = match pos {
-            0 => ColorStar::from(star),
-            1...7 => random_color(star),
-            p => hash_chars_as_color(star, &mut chars_buf, &buf[..p])
-        };
+impl<B: AsMut<[u8]>> AskPass<B> {
+    /// AskPass
+    ///
+    /// Note that an error (`io::ErrorKind::Interrupted`) will be returned
+    /// when the user interrupts with `Ctrl-c`.
+    pub fn askpass(&mut self, prompt: &str) -> io::Result<&'_ [u8]> {
+        let terminal = Term::new()?;
+        let mut pos = 0;
+        let mut last = 0;
 
-        write!(terminal.inner, "\r{} ", prompt)?;
-        colors.write(&terminal.inner)?;
+        terminal.read_event(|event| {
+            let buf = self.buf.as_mut();
+            let star = self.star;
 
-        Ok(false)
-    })?;
+            match event {
+                Event::Key(Key::Enter) => return Ok(true),
+                Event::Key(Key::Char(c)) => if buf.len() - pos > c.len_utf8() {
+                    c.encode_utf8(&mut buf[pos..]);
+                    last = c.len_utf8();
+                    pos += last;
+                },
+                Event::Key(Key::Backspace) => pos = pos.saturating_sub(last),
+                Event::Key(Key::Escape) => pos = 0,
+                Event::Key(Key::Ctrl('c')) =>
+                    return Err(io::Error::new(io::ErrorKind::Interrupted, "Ctrl-c")),
+                Event::NoEvent => (),
+                _ => return Ok(false)
+            }
 
-    write!(terminal.inner, "\r")?;
-    terminal.inner.clear_to_line_end()?;
+            let colors = match pos {
+                0 => ColorStar::from(star),
+                1..=7 => random_color(star),
+                p => hash_chars_as_color(star, &buf[..p])
+            };
 
-    Ok((buf, pos))
+            write!(terminal.inner, "\r{} ", prompt)?;
+            colors.write(&terminal.inner)?;
+
+            Ok(false)
+        })?;
+
+        write!(terminal.inner, "\r")?;
+        terminal.inner.clear_to_line_end()?;
+
+        let buf = self.buf.as_mut();
+        Ok(&buf[..pos])
+    }
 }

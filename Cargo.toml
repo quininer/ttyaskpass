@@ -1,6 +1,6 @@
 [package]
 name = "ttyaskpass"
-version = "2.0.0-alpha.5"
+version = "2.0.0"
 authors = ["quininer kel <quininer@live.com>"]
 description = "a safely passphrase prompt library."
 repository = "https://github.com/quininer/ttyaskpass"
@@ -8,17 +8,14 @@ keywords = [ "askpass", "getpass", "passphrase", "prompt" ]
 documentation = "https://docs.rs/ttyaskpass/"
 license = "MIT"
 categories = [ "command-line-utilities" ]
+edition = "2018"
 
 [[bin]]
 name = "ttyaskpass"
 doc = false
 
-[features]
-nightly = [ "seckey/nightly" ]
-
 [dependencies]
 libc = "0.2"
-rand = "0.5"
-seckey = "0.9"
-mortal = "0.1"
+rand = "0.7"
+mortal = "0.2"
 sha3 = "0.8"
