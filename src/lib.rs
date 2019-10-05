@@ -2,6 +2,7 @@ mod readtty;
 mod colorhash;
 
 use std::io;
+use bstr::ByteSlice;
 use mortal::{ Event, Key };
 use colorhash::{ ColorStar, hash_chars_as_color, random_color };
 use readtty::Term;
@@ -36,10 +37,9 @@ impl<B: AsMut<[u8]>> AskPass<B> {
     ///
     /// Note that an error (`io::ErrorKind::Interrupted`) will be returned
     /// when the user interrupts with `Ctrl-c`.
-    pub fn askpass(&mut self, prompt: &str) -> io::Result<&'_ [u8]> {
+    pub fn askpass<'a>(&'a mut self, prompt: &str) -> io::Result<&'a [u8]> {
         let terminal = Term::new()?;
         let mut pos = 0;
-        let mut last = 0;
 
         terminal.read_event(|event| {
             let buf = self.buf.as_mut();
@@ -49,10 +49,11 @@ impl<B: AsMut<[u8]>> AskPass<B> {
                 Event::Key(Key::Enter) => return Ok(true),
                 Event::Key(Key::Char(c)) => if buf.len() - pos > c.len_utf8() {
                     c.encode_utf8(&mut buf[pos..]);
-                    last = c.len_utf8();
-                    pos += last;
+                    pos += c.len_utf8();
                 },
-                Event::Key(Key::Backspace) => pos = pos.saturating_sub(last),
+                Event::Key(Key::Backspace) => if let Some((start, ..)) = buf[..pos].char_indices().last() {
+                    pos = start;
+                },
                 Event::Key(Key::Escape) => pos = 0,
                 Event::Key(Key::Ctrl('c')) =>
                     return Err(io::Error::new(io::ErrorKind::Interrupted, "Ctrl-c")),
