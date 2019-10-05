@@ -51,9 +51,11 @@ impl<B: AsMut<[u8]>> AskPass<B> {
                     c.encode_utf8(&mut buf[pos..]);
                     pos += c.len_utf8();
                 },
-                Event::Key(Key::Backspace) => if let Some((start, ..)) = buf[..pos].char_indices().last() {
-                    pos = start;
-                },
+                Event::Key(Key::Backspace) => pos = buf[..pos].char_indices()
+                    .last()
+                    .map(|(start, ..)| start)
+                    .unwrap_or(0)
+                ,
                 Event::Key(Key::Escape) => pos = 0,
                 Event::Key(Key::Ctrl('c')) =>
                     return Err(io::Error::new(io::ErrorKind::Interrupted, "Ctrl-c")),
