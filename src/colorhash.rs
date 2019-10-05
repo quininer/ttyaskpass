@@ -6,7 +6,7 @@ use std::io;
 use rand::{ Rng, thread_rng };
 use sha3::Shake256;
 use sha3::digest::{ Input, ExtendableOutput, XofReader };
-use mortal::{ Terminal, Color };
+use crate::readtty::{ map_io_err, Term };
 
 
 pub struct ColorStar {
@@ -19,28 +19,16 @@ impl ColorStar {
         ColorStar { colors: [0; 4], star }
     }
 
-    pub fn write(&self, term: &Terminal) -> io::Result<()> {
-        fn color(c: u8) -> Color {
-            match (c % 7) + 1 {
-//                0 => Color::Black,
-                1 => Color::Blue,
-                2 => Color::Cyan,
-                3 => Color::Green,
-                4 => Color::Magenta,
-                5 => Color::Red,
-                6 => Color::White,
-                7 => Color::Yellow,
-                _ => unreachable!()
-            }
-        }
+    pub fn write_to(&self, term: &mut Term) -> io::Result<()> {
+        let color = crossterm::color();
 
         for &c in &self.colors {
-            term.set_fg(color(c))?;
-            term.write_char(self.star)?;
-            term.write_char(self.star)?;
+            color.set_fg(crossterm::Color::AnsiValue(c))
+                .map_err(map_io_err)?;
+            write!(term, "{0}{0}", self.star)?;
         }
 
-        term.set_fg(None)?;
+        color.reset().map_err(map_io_err)?;
 
         Ok(())
     }

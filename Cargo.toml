@@ -18,5 +18,9 @@ doc = false
 libc = "0.2"
 bstr = "0.2"
 rand = "0.7"
-mortal = "0.2"
 sha3 = "0.8"
+
+[dependencies.crossterm]
+version = "0.11"
+default-features = false
+features = [ "terminal", "input", "style", "screen" ]

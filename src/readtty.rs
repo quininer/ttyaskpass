@@ -1,36 +1,31 @@
-use std::io;
-use mortal::{ Event, Terminal, PrepareState };
-#[cfg(unix)] use mortal::unix::OpenTerminalExt;
+use std::{ fmt, io };
 
 
 pub struct Term {
-    pub inner: Terminal,
-    state: Option<PrepareState>
+    _raw: crossterm::RawScreen,
+    term: crossterm::Terminal
 }
 
 impl Term {
     pub fn new() -> io::Result<Term> {
-        #[cfg(not(unix))]
-        let terminal = Terminal::new()?;
-
-        #[cfg(unix)]
-        let terminal = Terminal::from_path("/dev/tty")?;
-
-        let state = terminal.prepare(Default::default())?;
-
-        Ok(Term { inner: terminal, state: Some(state) })
+        let raw = crossterm::RawScreen::into_raw_mode()
+            .map_err(map_io_err)?;
+        let term = crossterm::Terminal::new();
+        Ok(Term { _raw: raw, term })
     }
 
-    pub fn read_event<F>(&self, mut f: F) -> io::Result<()>
-        where F: FnMut(Event) -> io::Result<bool>
+    pub fn read_event<F>(&mut self, mut f: F) -> io::Result<()>
+        where F: FnMut(&mut Self, crossterm::KeyEvent) -> io::Result<bool>
     {
-        if f(Event::NoEvent)? {
+        if f(self, crossterm::KeyEvent::Null)? {
             return Ok(());
         }
 
-        loop {
-            if let Some(ev) = self.inner.read_event(None)? {
-                if f(ev)? {
+        let input = crossterm::input();
+
+        for event in input.read_sync() {
+            if let crossterm::InputEvent::Keyboard(event) = event {
+                if f(self, event)? {
                     break
                 }
             }
@@ -38,12 +33,20 @@ impl Term {
 
         Ok(())
     }
+
+    pub fn write_fmt(&mut self, args: fmt::Arguments) -> io::Result<usize> {
+        self.term.write(args).map_err(map_io_err)
+    }
+
+    pub fn clear_current_line(&mut self) -> io::Result<()> {
+        self.term.clear(crossterm::ClearType::CurrentLine)
+            .map_err(map_io_err)
+    }
 }
 
-impl Drop for Term {
-    fn drop(&mut self) {
-        if let Some(state) = self.state.take() {
-            let _ = self.inner.restore(state);
-        }
+pub fn map_io_err(err: crossterm::ErrorKind) -> io::Error {
+    match err {
+        crossterm::ErrorKind::IoError(err) => err,
+        err => io::Error::new(io::ErrorKind::Other, err)
     }
 }
